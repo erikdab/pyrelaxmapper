@@ -22,7 +22,8 @@ deploy:
     repo: erikdab/pyrelaxmapper
     tags: true
 env:
-- TOXENV=py36
+    # Build required: https://github.com/travis-ci/travis-ci/issues/4990
+# - TOXENV=py36
 - TOXENV=py35
 - TOXENV=py34
 - TOXENV=py33
@@ -30,5 +31,5 @@ env:
 # - TOXENV=pypy
 install: pip install -U tox
 language: python
-python: 3.6
+python: 3.5
 script: tox -e ${TOXENV}
