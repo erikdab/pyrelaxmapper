@@ -18,10 +18,10 @@ pyrelaxmapper
      :alt: Updates
 
 
-Python RelaxMapper is program utilizing relaxation mapping to propose mappings between wordnets.
+pyrelaxmapper utilizes relaxation mapping to propose mappings between wordnets.
 
 
-* Free software: GNU General Public License v3
+* Free software: GNU Lesser General Public License v3
 * Documentation: https://pyrelaxmapper.readthedocs.io.
 
 
