@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+
+"""Project cli interface."""
+
 import os
 import click
 from . import data, __version__
@@ -25,5 +28,7 @@ def make_dict(output):
             tokens = terms[:]
             tokens.expand(key)
             file.write(' '.join(tokens))
+
+
 if __name__ == "__main__":
     main()
