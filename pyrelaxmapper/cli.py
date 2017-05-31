@@ -4,12 +4,15 @@
 
 import os
 import click
-from . import data, __version__
+from . import __version__
+from . import conf
+from . import data
 
 
 @click.group()
 @click.version_option(version=__version__)
 def main():
+    """Application entry point."""
     pass
 
 
@@ -28,6 +31,21 @@ def make_dict(output):
             tokens = terms[:]
             tokens.expand(key)
             file.write(' '.join(tokens))
+
+
+@main.command()
+def config():
+    """List program configuration."""
+    click.secho(conf.search_paths.__doc__, fg='blue')
+    for path in conf.search_paths():
+        click.echo(''.join([path, ': ', 'exists' if os.path.exists(path) else 'does not exist']))
+
+    click.secho(conf.load_conf.__doc__.splitlines()[0], fg='blue')
+    parser = conf.load_conf()
+    for section in parser.sections():
+        click.echo(section)
+        for key in parser[section].keys():
+            click.echo(''.join(['\t', key, ':', parser[section][key]]))
 
 
 if __name__ == "__main__":
