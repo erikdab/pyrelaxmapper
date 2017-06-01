@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """
 test_pyrelaxmapper
 ----------------------------------
 
 Tests for `pyrelaxmapper` module.
 """
-
 import pytest
 
 from contextlib import contextmanager

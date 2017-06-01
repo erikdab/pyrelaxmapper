@@ -2,8 +2,7 @@
 """Application cli interface."""
 import click
 
-from . import pyrelaxmapper
-from . import __version__
+from pyrelaxmapper import __version__, commands
 
 
 @click.group()
@@ -22,25 +21,25 @@ def make():
 @make.command('all')
 def make_all():
     """Make all targets."""
-    pyrelaxmapper.make_dicts()
+    commands.make_dicts()
 
 
 @make.command('dicts')
 def make_dicts():
     """Make a cascading dictionary."""
-    pyrelaxmapper.make_dicts()
+    commands.make_dicts()
 
 
 @main.command()
 def db():
     """List database information."""
-    pyrelaxmapper.db_version()
+    commands.db_info()
 
 
 @main.command()
 def config():
     """List configuration information."""
-    pyrelaxmapper.list_config()
+    commands.list_config()
 
 
 if __name__ == "__main__":

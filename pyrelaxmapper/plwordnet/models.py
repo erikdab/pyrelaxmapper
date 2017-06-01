@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""plWordNet database and external data models."""
+"""plWordNet database models and external data classes."""
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
 
@@ -37,7 +37,7 @@ class LexicalUnit(Base):
         Domain ID
     pos : int
         POS ID"""
-    __tablename__ = 'synset'
+    __tablename__ = 'lexicalunit'
 
     id_ = Column(Integer, primary_key=True)
     lemma = Column(String(255))
@@ -71,7 +71,7 @@ class LexicalRelation(Base):
         Relation type ID
     valid : int
         Relation validity (1-yes, 0-no)"""
-    __tablename__ = 'synsetrelation'
+    __tablename__ = 'lexicalrelation'
 
     parent_id = Column(Integer, primary_key=True)
     child_id = Column(Integer, primary_key=True)
@@ -136,6 +136,8 @@ class RelationType(Base):
     shortcut : str
         Short relation name
     """
+    __tablename__ = 'relationtype'
+
     id_ = Column(Integer, primary_key=True)
     # 0,1,2
     # objecttype = Column(Integer)

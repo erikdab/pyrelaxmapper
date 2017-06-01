@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Application main logic."""
+"""Main Application commands."""
 import os
 
 import click
 
-from . import plwordnet
-from . import conf
-from . import data
+from pyrelaxmapper import data, db, conf
+from pyrelaxmapper.plwordnet import queries as plquery
 
 
 def make_dicts():
@@ -28,13 +27,14 @@ def make_dicts():
     click.secho("Done. Results stored in: {}".format(filename), fg='blue')
 
 
-def db_version():
-    """Print DB version."""
+def db_info():
+    """List DB and external datasets info."""
     parser = conf.load_conf()
     with open(os.path.expanduser(parser['path']['db-default'])) as file:
         settings = conf.load_conf_db(file)
-    engine = plwordnet.create_engine(settings)
-    version = plwordnet.query_version(engine)
+    engine = db.create_engine(settings)
+    session = db.session_start(engine)
+    version = plquery.version(session)
     click.echo('plWN version: {}'.format(version))
 
 
