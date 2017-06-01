@@ -13,12 +13,12 @@ requirements = [
     'Click>=6.0',
     'nltk>=3.2',
     'configparser>=3.5',
-    # Required for colors on Windows
-    'colorama>=0.3',
+    'colorama>=0.3',        # Required for colors on Windows
+    'mysqlclient>=1.3',
+    'sqlalchemy>=1.1',
 ]
 
 test_requirements = [
-    # TODO: put package test requirements here
 ]
 
 setup(
