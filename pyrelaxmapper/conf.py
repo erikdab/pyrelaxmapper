@@ -57,7 +57,7 @@ def load_conf_db(file):
     conf = db_parser['properties']
     match = re.search('(mysql):\/\/(.+?):?(\d+)?\/(.+)(?=\?)', conf['Url'])
     if len(match.groups()) != 4:
-        pattern = '...mysql//host[:port]/database...'
+        pattern = '..mysql://host[:port]/database..'
         raise ValueError('Property "Url" in database properties does not match pattern: {}.'
                          .format(pattern))
 
