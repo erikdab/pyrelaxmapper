@@ -9,7 +9,7 @@ from . import __version__
 @click.group()
 @click.version_option(version=__version__)
 def main():
-    """pyrelaxmapper uses relaxation labeling for lexical net mapping."""
+    """pyrelaxmapper uses relaxation labeling for wordnet mapping."""
     pass
 
 
