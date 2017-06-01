@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """Configuration utilities."""
-from configparser import ConfigParser
-import os
-import click
-import re
 import io
 import logging
+import os
+import re
+from configparser import ConfigParser
 
-from . import APPLICATION
+import click
+
+from pyrelaxmapper import APPLICATION
 
 logger = logging.getLogger()
 
