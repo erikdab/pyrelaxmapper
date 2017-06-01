@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
-
-"""Configuration utilies."""
+"""Configuration utilities."""
 from configparser import ConfigParser
 import os
 import click
 import re
 import io
+import logging
 
+from . import APPLICATION
 
-APPNAME = 'pyrelaxmapper'
+logger = logging.getLogger()
 
 
 def search_paths():
-    """Search paths for program configuration files."""
+    """Returns search paths for program configuration files."""
     return [os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'conf')),
-            click.get_app_dir(APPNAME)]
+            click.get_app_dir(APPLICATION)]
 
 
 def load_conf(paths=search_paths()):
@@ -69,10 +70,62 @@ def load_conf_db(file):
     return settings
 
 
-def load_properties(file):
-    """Add section to .properties file for opening with ConfigParser.
+def load_dicts(directory):
+    """Loads dicts index and creates dict file paths.
 
-    Dummy section name: '[properties]'
+    Parameters
+    ----------
+    directory : string
+        Directory containing dictionaries to cascade together.
+
+        Structure:
+          index.txt     # Dictionaries names (dir names) to load
+          */dict.txt    # Translations for each dictionary
+
+        'index.txt'   format: comma-separated ordered list, example:
+            "dicts_dir1,dicts_dir3,dicts_dir2"
+        'dict.txt'    format: tab-delimited translations, example:
+            "term1\ttranslation1
+             term2\ttranslation2"
+
+    Returns
+    -------
+    tuple
+        (list of dict names, list of dict absolute paths)
+    """
+    filename = os.path.join(directory, 'index.txt')
+    if not os.path.exists(filename):
+        logger.error('index.txt is missing in path: {0}. '.format(directory))
+        return []
+    with open(filename, 'r') as file:
+        names = file.read().strip().split(',')
+        index = [os.path.join(directory, name, 'dict.txt') for name in names]
+    return names, index
+
+
+def yield_lines(filenames):
+    """Yield all lines from files.
+
+    Logs a debug level message if file does not exist and continues.
+
+    Yields
+    ------
+    string
+        all lines from files
+    """
+    for filename in filenames:
+        if not os.path.exists(filename):
+            logger.debug('File {0} does not exist.'.format(filename))
+            continue
+        with open(filename, 'r') as file:
+            for line in file:
+                yield line
+
+
+def load_properties(file):
+    """Prepares .properties file to be opened by ConfigParser.
+
+    Adds a dummy section name so the parser can open it: '[properties]'
 
     Parameters
     ----------
