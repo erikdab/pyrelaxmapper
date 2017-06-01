@@ -7,6 +7,7 @@ import click
 from . import __version__
 from . import conf
 from . import data
+from . import db
 
 
 @click.group()
@@ -31,6 +32,17 @@ def make_dict(output):
             tokens = terms[:]
             tokens.expand(key)
             file.write(' '.join(tokens))
+
+
+@main.command()
+def dbms():
+    """DB Test function."""
+    parser = conf.load_conf()
+    with open(os.path.expanduser(parser['db']['default'])) as file:
+        settings = conf.load_conf_db(file)
+    engine = db.connect(settings)
+    version = db.plwn_version(engine)
+    click.echo('plWN version: {}'.format(version))
 
 
 @main.command()
