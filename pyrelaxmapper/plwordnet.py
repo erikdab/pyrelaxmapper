@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
 """plWordNet database utilities."""
-
 import sqlalchemy
 import sqlalchemy.engine.url
 from sqlalchemy.ext.declarative import declarative_base
@@ -20,17 +18,16 @@ class Parameter(Base):
     value = Column(String(255))
 
 
-def connect(conf):
-    """Create SQLAlchemy engine from settings dict."""
-    conf['drivername'] = 'mysql'
-    url = sqlalchemy.engine.url.URL(**conf)
+def create_engine(settings):
+    """Create an SQLAlchemy engine from settings dict."""
+    url = sqlalchemy.engine.url.URL(**settings)
     db = sqlalchemy.create_engine(url)
     db.echo = False
     return db
 
 
-def plwn_version(db):
-    """Query for plWordnet DB version."""
+def query_version(db):
+    """Query plWordNet format version."""
     Session = sessionmaker(bind=db)
     session = Session()
     parameter = session.query(Parameter).filter_by(name='programversion').first()
