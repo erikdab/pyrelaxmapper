@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """plWordNet database models and external data classes."""
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
@@ -75,7 +75,7 @@ class LexicalRelation(Base):
 
     parent_id = Column(Integer, ForeignKey('lexicalunit.id'), primary_key=True)
     child_id = Column(Integer, ForeignKey('lexicalunit.id'), primary_key=True)
-    rel_id = Column(Integer, ForeignKey('relationtype'))
+    rel_id = Column(Integer, ForeignKey('relationtype.id'))
     valid = Column(Integer)
 
 
@@ -109,9 +109,9 @@ class SynsetRelation(Base):
         Relation validity (1-yes, 0-no)"""
     __tablename__ = 'synsetrelation'
 
-    parent_id = Column(Integer, ForeignKey('synset'), primary_key=True)
-    child_id = Column(Integer, ForeignKey('synset'), primary_key=True)
-    rel_id = Column(Integer, ForeignKey('relationtype'))
+    parent_id = Column(Integer, ForeignKey('synset.id'), primary_key=True)
+    child_id = Column(Integer, ForeignKey('synset.id'), primary_key=True)
+    rel_id = Column(Integer, ForeignKey('relationtype.id'))
     valid = Column(Integer)
 
 
@@ -143,8 +143,8 @@ class RelationType(Base):
     id_ = Column('id', Integer, primary_key=True)
     # 0,1,2
     # objecttype = Column(Integer)
-    parent_id = Column(Integer, ForeignKey('relationtype'))
-    reverse_id = Column(Integer, ForeignKey('relationtype'))
+    parent_id = Column(Integer, ForeignKey('relationtype.id'))
+    reverse_id = Column(Integer, ForeignKey('relationtype.id'))
     name = Column(String(255))
     description = Column(String(500))
     posstr = Column(String(255))
@@ -171,6 +171,6 @@ class UnitSynset(Base):
         Lexical Unit's number inside synset"""
     __tablename__ = 'unitandsynset'
 
-    lex_id = Column(Integer, ForeignKey('lexicalunit'))
-    syn_id = Column(Integer, ForeignKey('synset'), primary_key=True)
+    lex_id = Column(Integer, ForeignKey('lexicalunit.id'))
+    syn_id = Column(Integer, ForeignKey('synset.id'), primary_key=True)
     unitindex = Column(Integer, primary_key=True)
