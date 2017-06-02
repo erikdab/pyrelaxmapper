@@ -6,6 +6,7 @@ import click
 
 from pyrelaxmapper import data, db, conf
 from pyrelaxmapper.plwordnet import queries as plquery
+from pyrelaxmapper.plwordnet import files as plfile
 
 
 def make_dicts():
@@ -36,6 +37,17 @@ def db_info():
     session = db.session_start(engine)
     version = plquery.version(session)
     click.echo('plWN version: {}'.format(version))
+
+    click.secho('Listing file-based dataset summaries:', fg='blue')
+    with open(conf.search_in_paths('domains.txt')[-1]) as file:
+        domains = plfile.load_domains(file)
+    click.echo('Domains (5 out of {} total):'.format(len(domains)))
+    click.echo('\n'.join(['\t'.join(domain) for domain in domains[0:5]]))
+
+    with open(conf.search_in_paths('pos.txt')[-1]) as file:
+        pos = plfile.load_pos(file)
+    click.echo('POS (5 out of {} total):'.format(len(pos)))
+    click.echo('\n'.join(['\t'.join(pos_) for pos_ in pos[0:5]]))
 
 
 def list_config():

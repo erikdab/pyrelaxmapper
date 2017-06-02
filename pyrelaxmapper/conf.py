@@ -13,10 +13,36 @@ from pyrelaxmapper import APPLICATION
 logger = logging.getLogger()
 
 
+# TODO: Some way to extend this? In CONF!
+# Split conf and data? conf_paths, data_paths?
 def search_paths():
     """Returns search paths for program configuration files."""
     return [os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'conf')),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data')),
             click.get_app_dir(APPLICATION)]
+
+
+def search_in_paths(filename, paths=search_paths()):
+    """Find all files with pattern in paths.
+
+    Parameters
+    ----------
+    paths : list
+        List of paths to search in
+    filename : str
+        Filename to search for
+
+    Returns
+    -------
+    file_paths : list
+        List of files found, or empty if none exist
+    """
+    file_paths = []
+    for path in paths:
+        file_path = os.path.join(path, filename)
+        if os.path.exists(file_path):
+            file_paths.append(file_path)
+    return file_paths
 
 
 def load_conf(paths=search_paths()):
@@ -32,11 +58,9 @@ def load_conf(paths=search_paths()):
     ConfigParser
         Single config parser with merged settings.
     """
+    file_paths = search_in_paths('conf.ini')
     parser = ConfigParser()
-    for path in paths:
-        conf = os.path.join(path, 'conf.ini')
-        if os.path.exists(conf):
-            parser.read(conf)
+    parser.read(file_paths)
     return parser
 
 

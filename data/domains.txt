@@ -1,0 +1,52 @@
+id	name	description
+0	adj	PWN: all adjective clusters
+1	rel	przymiotniki relacyjne (rzeczownikowe)
+2	adv	PWN: all adverbs
+3	bhp	najwyższe w hierarchii
+4	czy	czynności (nazwy)
+5	zw	zwierzęta
+6	wytw	wytwory ludzkie(nazwy)
+7	cech	cechy ludzi i zwierząt
+8	czc	części ciała
+9	umy	związane z myśleniem
+10	por	związane z porozumiewaniem się
+11	zdarz	zdarzenia
+12	czuj	uczucia, odczucia i emocje
+13	jedz	jedzenie
+14	grp	grupy ludzi i rzeczy
+15	msc	miejsca i umiejscowienie
+16	cel	cel działania
+17	rz	obiekty naturalne
+18	os	ludzie
+19	zj	zjawiska naturalne
+20	rsl	nazwy roślin
+21	pos	posiadanie i jego zmiana
+22	prc	procesy naturalne
+23	il	ilość, liczebność, jednoski miary
+24	zwz	związek miedzy ludźmi, rzeczami lub ideami
+25	ksz	kształty
+26	st	sytuacje statyczne (stany)
+27	sbst	substancje
+28	czas	czas i stosunki czasowe
+29	hig	pielęgnacja ciała
+30	zmn	zmiana wielkości, temeraturym natężenia, itp.
+31	cumy	czasowniki myślenia (szeroko rozumianego)
+32	cpor	czasowniki mówienia, śpiewania itp.
+33	wal	czasowniki rywalizacji fizycznej
+34	cjedz	czasowniki jedzenia
+35	dtk	czasowniki oznacz. kontakt fizyczny (dotykanie, uderzenie, rycie itp.)
+36	cwyt	czasowniki oznacz. wytwarzanie czegoś
+37	cczuj	czasowniki wyrażające uczucia
+38	ruch	czasowniki ruchu
+39	pst	Czasowniki postrzegania (percepcji)
+40	cpos	czasowniki posiadania i zmiany posiadania
+41	sp	czasowniki oznacz. wydarzenie i działania społeczne i polityczne
+42	cst	czasowniki stanowe
+43	pog	czasowniki oznacz. zjawiska pogodowe
+44	odcz	przymiotniki odczasownikowe
+45	jak	przymiotniki jakościowe
+46	grad	przymiotniki odprzymiotnikowe (natężenie cechy)
+47	sys	systematyka, klasyfikacja
+48	mat	przymiotniki materiałowe
+49	!nie ustawiony!	dziedzina nie ustawiona
+
