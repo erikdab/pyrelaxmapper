@@ -19,7 +19,7 @@ class Parameter(Base):
         Value of parameter"""
     __tablename__ = 'parameter'
 
-    id_ = Column(Integer, primary_key=True)
+    id_ = Column('id', Integer, primary_key=True)
     name = Column(String(255))
     value = Column(String(255))
 
@@ -39,7 +39,7 @@ class LexicalUnit(Base):
         POS ID"""
     __tablename__ = 'lexicalunit'
 
-    id_ = Column(Integer, primary_key=True)
+    id_ = Column('id', Integer, primary_key=True)
     lemma = Column(String(255))
     domain = Column(Integer)
     pos = Column(Integer)
@@ -90,7 +90,7 @@ class Synset(Base):
         String describing synset"""
     __tablename__ = 'synset'
 
-    id_ = Column(Integer, primary_key=True)
+    id_ = Column('id', Integer, primary_key=True)
     unitsstr = Column(String(1024))
 
 
@@ -138,7 +138,7 @@ class RelationType(Base):
     """
     __tablename__ = 'relationtype'
 
-    id_ = Column(Integer, primary_key=True)
+    id_ = Column('id', Integer, primary_key=True)
     # 0,1,2
     # objecttype = Column(Integer)
     parent_id = Column(Integer)
