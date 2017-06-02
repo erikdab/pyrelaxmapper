@@ -5,17 +5,22 @@ import os
 import click
 
 from pyrelaxmapper import data, db, conf
-from pyrelaxmapper.plwordnet import queries as plquery
-from pyrelaxmapper.plwordnet import files as plfile
+from pyrelaxmapper.plwordnet import queries as plquery, files as plfile
+
+
+# TODO: Temporary, do this better!
+def make_session(db_name='db-default'):
+    """Make DB session."""
+    parser = conf.load_conf()
+    with open(os.path.expanduser(parser['path'][db_name])) as file:
+        settings = conf.load_conf_db(file)
+    engine = db.create_engine(settings)
+    return db.session_start(engine)
 
 
 def db_info():
     """List DB and external datasets info."""
-    parser = conf.load_conf()
-    with open(os.path.expanduser(parser['path']['db-default'])) as file:
-        settings = conf.load_conf_db(file)
-    engine = db.create_engine(settings)
-    session = db.session_start(engine)
+    session = make_session()
     version = plquery.version(session)
     click.echo('plWN version: {}'.format(version))
 
@@ -43,14 +48,18 @@ def list_config():
     """List application configuration."""
     click.secho(conf.search_paths.__doc__, fg='blue')
     for path in conf.search_paths():
-        click.echo(''.join([path, ': ', 'exists' if os.path.exists(path) else 'does not exist']))
+        click.echo(''.join([path, ': (exists)' if os.path.exists(path) else '']))
 
     click.secho(conf.load_conf.__doc__.splitlines()[0], fg='blue')
     parser = conf.load_conf()
     for section in parser.sections():
         click.echo(section)
         for key in parser[section].keys():
-            click.echo(''.join(['\t', key, ': ', parser[section][key]]))
+            value = parser[section][key]
+            exists = ''
+            if section == 'path' and os.path.exists(os.path.expanduser(value)):
+                exists = ': (exists)'
+            click.echo(''.join(['\t', key, ': ', value, exists]))
 
 
 def make_dicts():
@@ -67,3 +76,11 @@ def make_dicts():
     with open(filename, 'w') as file:
         file.write('\n'.join(key+' '+' '.join(terms) for key, terms in lang_dict.items()))
     click.secho('Done. Results stored in: {}'.format(filename), fg='blue')
+
+
+def make_extract():
+    """Extract needed data from plWordNet DB."""
+    session = make_session()
+    click.secho('Extracting units, synsets, hiper and hiponyms from DB.', fg='blue')
+    data.db_extract(session)
+    click.secho('Done.', fg='blue')

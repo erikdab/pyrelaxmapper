@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """plWordNet DB queries."""
-from .models import LexicalUnit, Synset, SynsetRelation, RelationType, UnitSynset
-from . import models
 from sqlalchemy import orm
+from sqlalchemy.sql import func, expression
+
+from . import models
+from .models import LexicalUnit, Synset, SynsetRelation, RelationType, UnitSynset
 
 
 def version(session):
@@ -33,16 +35,72 @@ def pwn_mappings(session):
     rel_types = relationtypes_pwn_plwn(session)
 
     syns_en = orm.aliased(Synset)
-    mappings = (session.query(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
-                .join(SynsetRelation, Synset.id_ == SynsetRelation.parent_id)
-                .join(syns_en, SynsetRelation.child_id == syns_en.id_)
+    return (session.query(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
+            .join(SynsetRelation, Synset.id_ == SynsetRelation.parent_id)
+            .join(syns_en, SynsetRelation.child_id == syns_en.id_)
 
-                .join(UnitSynset, syns_en.id_ == UnitSynset.syn_id)
-                .join(LexicalUnit, UnitSynset.lex_id == LexicalUnit.id_)
+            .join(UnitSynset, syns_en.id_ == UnitSynset.syn_id)
+            .join(LexicalUnit, UnitSynset.lex_id == LexicalUnit.id_)
 
-                .join(RelationType, SynsetRelation.rel_id == RelationType.id_)
-                .filter(RelationType.id_.in_(rel_types))
-                .filter(LexicalUnit.pos > 4)
-                .order_by(Synset.id_)
-                )
-    return mappings
+            .join(RelationType, SynsetRelation.rel_id == RelationType.id_)
+            .filter(RelationType.id_.in_(rel_types))
+            .filter(LexicalUnit.pos > 4)
+            .order_by(Synset.id_)
+            )
+
+
+def lunits(session, pos=None):
+    """Query for lexical units, their lemma and POS.
+
+    Parameters
+    ----------
+    session : orm.session.Session
+    pos : list
+        Parts of speech to select (default [2])
+    """
+    if not pos:
+        pos = [2]
+    return (session.query(LexicalUnit.id_, LexicalUnit.lemma, LexicalUnit.pos)
+            .filter(LexicalUnit.pos.in_(pos))
+            .order_by(LexicalUnit.id_)
+            )
+
+
+def synsets(session, pos=None):
+    """Query for synsets, concatenated ids and lemmas of their LUs.
+
+    Parameters
+    ----------
+    session : orm.session.Session
+    pos : list
+        Parts of speech to select (default [2])
+    """
+    if not pos:
+        pos = [2]
+    return (session.query(Synset.id_,
+                          expression.label('lu_ids', func.group_concat(LexicalUnit.id_)),
+                          expression.label('lu_lemmas', func.group_concat(LexicalUnit.lemma))
+                          )
+            .join(UnitSynset)
+            .join(LexicalUnit)
+            .filter(LexicalUnit.pos.in_(pos))
+            .order_by(Synset.id_)
+            .group_by(Synset.id_)
+            )
+
+
+def synset_relations(session, types=None):
+    """Query for hipernymy.
+
+    Parameters
+    ----------
+    session : orm.session.Session
+    types : list
+        RelationType to select (default [10, 11], hiper/hiponymy)
+    """
+    if types is None:
+        types = [10, 11]
+    return (session.query(SynsetRelation.parent_id, SynsetRelation.child_id)
+            .filter(SynsetRelation.rel_id.in_(types))
+            .order_by(SynsetRelation.rel_id, SynsetRelation.parent_id)
+            )

@@ -12,16 +12,15 @@ def main():
     pass
 
 
-@main.group()
+@main.group(chain=True)
 def make():
     """Make target action."""
-    pass
 
 
-@make.command('all')
-def make_all():
-    """Make all targets."""
-    commands.make_dicts()
+@make.command('extract')
+def make_extract():
+    """Extract data from plWordNet DB."""
+    commands.make_extract()
 
 
 @make.command('dicts')
