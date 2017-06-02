@@ -9,25 +9,6 @@ from pyrelaxmapper.plwordnet import queries as plquery
 from pyrelaxmapper.plwordnet import files as plfile
 
 
-def make_dicts():
-    """Create cascading dictionary from multiple dicts."""
-    parser = conf.load_conf()
-    names, index = conf.load_dicts(os.path.expanduser(parser['path']['dicts']))
-    if not index:
-        exit(1)
-    click.secho("Generating dict. Sources:", fg='blue')
-    click.echo(str(names))
-    lang_dict = data.cascade_dicts(conf.yield_lines(index))
-
-    directory = os.path.expanduser(parser['path']['output'])
-    filename = os.path.join(directory, 'dicts.txt')
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    with open(filename, 'w') as file:
-        file.write('\n'.join(key+' '+' '.join(terms) for key, terms in lang_dict.items()))
-    click.secho("Done. Results stored in: {}".format(filename), fg='blue')
-
-
 def db_info():
     """List DB and external datasets info."""
     parser = conf.load_conf()
@@ -70,3 +51,19 @@ def list_config():
         click.echo(section)
         for key in parser[section].keys():
             click.echo(''.join(['\t', key, ': ', parser[section][key]]))
+
+
+def make_dicts():
+    """Create cascading dictionary from multiple dicts."""
+    parser = conf.load_conf()
+    names, index = conf.load_dicts(os.path.expanduser(parser['path']['dicts']))
+    if not index:
+        exit(1)
+    click.secho("Generating dict. Sources:", fg='blue')
+    click.echo(str(names))
+    lang_dict = data.cascade_dicts(conf.yield_lines(index))
+
+    filename = conf.results('translations.txt')
+    with open(filename, 'w') as file:
+        file.write('\n'.join(key+' '+' '.join(terms) for key, terms in lang_dict.items()))
+    click.secho('Done. Results stored in: {}'.format(filename), fg='blue')

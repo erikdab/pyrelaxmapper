@@ -22,6 +22,15 @@ def search_paths():
             click.get_app_dir(APPLICATION)]
 
 
+# TODO: Temporary. Think of something better? :D
+def results(filename):
+    """Get absolute filename of new data file."""
+    output = os.path.expanduser(config['path']['output'])
+    if not os.path.exists(output):
+        os.makedirs(output)
+    return os.path.abspath(os.path.join(output, filename))
+
+
 def search_in_paths(filename, paths=search_paths()):
     """Find all files with pattern in paths.
 
@@ -167,3 +176,6 @@ def load_properties(file):
     config.write(file.read())
     config.seek(0, os.SEEK_SET)
     return config
+
+
+config = load_conf()
