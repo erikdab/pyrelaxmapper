@@ -38,16 +38,24 @@ def db_info():
     version = plquery.version(session)
     click.echo('plWN version: {}'.format(version))
 
+    limit = 5
+
+    pwn_mappings = plquery.pwn_mappings(session)
+    click.secho('Preexisting plWN-PWN Mappings ({} out of {}):'
+                .format(limit, pwn_mappings.count()), fg='blue')
+    pwn_mappings = pwn_mappings.limit(limit).all()
+    click.echo('\n'.join(str(mapping) for mapping in pwn_mappings))
+
     click.secho('Listing file-based dataset summaries:', fg='blue')
     with open(conf.search_in_paths('domains.txt')[-1]) as file:
         domains = plfile.load_domains(file)
-    click.echo('Domains (5 out of {} total):'.format(len(domains)))
-    click.echo('\n'.join(['\t'.join(domain) for domain in domains[0:5]]))
+    click.echo('Domains ({} out of {} total):'.format(limit, len(domains)))
+    click.echo('\n'.join(['\t'.join(domain) for domain in domains[0:limit]]))
 
     with open(conf.search_in_paths('pos.txt')[-1]) as file:
         pos = plfile.load_pos(file)
-    click.echo('POS (5 out of {} total):'.format(len(pos)))
-    click.echo('\n'.join(['\t'.join(pos_) for pos_ in pos[0:5]]))
+    click.echo('POS ({} out of {} total):'.format(limit, len(pos)))
+    click.echo('\n'.join(['\t'.join(pos_) for pos_ in pos[0:limit]]))
 
 
 def list_config():

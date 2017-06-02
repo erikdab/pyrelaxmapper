@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """plWordNet database models and external data classes."""
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 
 Base = declarative_base()
 
@@ -11,11 +11,11 @@ class Parameter(Base):
 
     Properties
     ----------
-    id_ : int
+    id_ : Column(Integer)
         Surrogate key
-    name : String
+    name : Column(String(255))
         Name of parameter
-    value : String
+    value : Column(String(255))
         Value of parameter"""
     __tablename__ = 'parameter'
 
@@ -29,13 +29,13 @@ class LexicalUnit(Base):
 
     Parameters
     ----------
-    id_ : int
+    id_ : Column(Integer)
         Surrogate key
-    lemma : str
+    lemma : Column(String(255))
         Lemma form of lexical unit
-    domain : int
+    domain : Column(Integer)
         Domain ID
-    pos : int
+    pos : Column(Integer)
         POS ID"""
     __tablename__ = 'lexicalunit'
 
@@ -63,19 +63,19 @@ class LexicalRelation(Base):
 
     Parameters
     ----------
-    parent_id : int
+    parent_id : Column(Integer)
         Relation parent ID (source)
-    child_id : int
+    child_id : Column(Integer)
         Relation child ID (target)
-    rel_id : int
+    rel_id : Column(Integer)
         Relation type ID
-    valid : int
+    valid : Column(Integer)
         Relation validity (1-yes, 0-no)"""
     __tablename__ = 'lexicalrelation'
 
-    parent_id = Column(Integer, primary_key=True)
-    child_id = Column(Integer, primary_key=True)
-    rel_id = Column(Integer)
+    parent_id = Column(Integer, ForeignKey('lexicalunit.id'), primary_key=True)
+    child_id = Column(Integer, ForeignKey('lexicalunit.id'), primary_key=True)
+    rel_id = Column(Integer, ForeignKey('relationtype'))
     valid = Column(Integer)
 
 
@@ -84,9 +84,9 @@ class Synset(Base):
 
     Properties
     ----------
-    id_ : int
+    id_ : Column(Integer)
         Surrogate key
-    unitsstr : str
+    unitsstr : Column(String(1024))
         String describing synset"""
     __tablename__ = 'synset'
 
@@ -99,19 +99,19 @@ class SynsetRelation(Base):
 
     Properties
     ----------
-    parent_id : int
+    parent_id : Column(Integer)
         Relation parent ID (source)
-    child_id : int
+    child_id : Column(Integer)
         Relation child ID (target)
-    rel_id : int
+    rel_id : Column(Integer)
         Relation type ID
-    valid : int
+    valid : Column(Integer)
         Relation validity (1-yes, 0-no)"""
     __tablename__ = 'synsetrelation'
 
-    parent_id = Column(Integer, primary_key=True)
-    child_id = Column(Integer, primary_key=True)
-    rel_id = Column(Integer)
+    parent_id = Column(Integer, ForeignKey('synset'), primary_key=True)
+    child_id = Column(Integer, ForeignKey('synset'), primary_key=True)
+    rel_id = Column(Integer, ForeignKey('relationtype'))
     valid = Column(Integer)
 
 
@@ -121,19 +121,21 @@ class RelationType(Base):
 
     Parameters
     ----------
-    id_ : int
+    id_ : Column(Integer)
         Surrogate key
-    parent_id : int
+    parent_id : Column(Integer)
         Relation parent ID
-    reverse_id : int
+    reverse_id : Column(Integer)
         Relation child ID
-    name : str
+    name : Column(String(255))
         Relation name
-    posstr : str
+    description : Column(String(255))
+        Relation description
+    posstr : Column(String(255))
         Parts of speech which may have such a relation
-    autoreverse : int
+    autoreverse : Column(Integer)
         Whether the relation is reversable
-    shortcut : str
+    shortcut : Column(String(255))
         Short relation name
     """
     __tablename__ = 'relationtype'
@@ -141,8 +143,8 @@ class RelationType(Base):
     id_ = Column('id', Integer, primary_key=True)
     # 0,1,2
     # objecttype = Column(Integer)
-    parent_id = Column(Integer)
-    reverse_id = Column(Integer)
+    parent_id = Column(Integer, ForeignKey('relationtype'))
+    reverse_id = Column(Integer, ForeignKey('relationtype'))
     name = Column(String(255))
     description = Column(String(500))
     posstr = Column(String(255))
@@ -161,14 +163,14 @@ class UnitSynset(Base):
 
     Properties
     ----------
-    lex_id : int
+    lex_id : Column(Integer)
         Lexical Unit ID
-    syn_id : int
+    syn_id : Column(Integer)
         Synset ID
-    unitindex : int
+    unitindex : Column(Integer)
         Lexical Unit's number inside synset"""
     __tablename__ = 'unitandsynset'
 
-    lex_id = Column(Integer)
-    syn_id = Column(Integer, primary_key=True)
+    lex_id = Column(Integer, ForeignKey('lexicalunit'))
+    syn_id = Column(Integer, ForeignKey('synset'), primary_key=True)
     unitindex = Column(Integer, primary_key=True)
