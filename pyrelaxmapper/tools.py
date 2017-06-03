@@ -6,7 +6,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import time
-import codecs
+
 import re
 from xml.etree.ElementTree import ElementTree
 import MySQLdb
@@ -21,7 +21,7 @@ def znajdz(numer):
     """Znajdz numer."""
     # wyrazenie = re.compile('^'+str(numer)+'( |\t)+')
     slowo = ''
-    jednostki = codecs.open('units.txt', 'r', encoding="utf-8")
+    jednostki = open('units.txt', 'r', encoding="utf-8")
     for linia in jednostki:
         # if re.search(wyrazenie,linia):
         linia = linia.strip()  # usuwamy niepotrzebne znaki
@@ -34,8 +34,8 @@ def znajdz(numer):
 
 def pisz_synset(numer):
     """wypisywanie synsetu o danym numerze"""
-    syns = codecs.open('synsets.txt', 'r', encoding="utf-8")
-    # jedn = codecs.open('units.txt', 'r', encoding="utf-8")
+    syns = open('synsets.txt', 'r', encoding="utf-8")
+    # jedn = open('units.txt', 'r', encoding="utf-8")
     # jednostki_num = []
     jednostki = []
     for linia in syns:
@@ -52,7 +52,7 @@ def pisz_synset(numer):
 def hipo(nr):
     """Numer hiponimy."""
     # nr = input("Podaj nr synsetu: ")
-    hiperonimia = codecs.open("synset_hiperonimia.txt", "r", encoding="utf-8")
+    hiperonimia = open("synset_hiperonimia.txt", "r", encoding="utf-8")
     hiper = dict()  # slownik potencjalnych przypisan
 
     for linia in hiperonimia:
@@ -104,7 +104,7 @@ def hipo(nr):
 
 def hipero(nr):
     """Numer hiperonimy."""
-    hiponimia = codecs.open("synset_hiponimia.txt", "r", encoding="utf-8")
+    hiponimia = open("synset_hiponimia.txt", "r", encoding="utf-8")
     hipo = dict()  # slownik potencjalnych przypisan
 
     for linia in hiponimia:
@@ -174,7 +174,7 @@ def hipo_en(kandydat):
 
 def rekur(p, nr, lan, rel):
     """rekurencyjne przeszukiwanie drzewa hipero- (relacja = 1) i hiponimii (relacja = 0)"""
-    plik = codecs.open(str(p) + '.txt', 'r', encoding="utf-8")
+    plik = open(str(p) + '.txt', 'r', encoding="utf-8")
     for linia in plik:
         linia = linia.strip()  # usuwamy niepotrzebne znaki
         tab = linia.split()  # wrzucamy zawartosc linii jako inty do tablicy
@@ -183,7 +183,7 @@ def rekur(p, nr, lan, rel):
             lan.append(tab[1 - rel])
             # print "znalezione i dodane ",tab[1-rel]
             rekur(p, tab[1 - rel], lan, rel)
-            plik = codecs.open(str(p) + '.txt', 'r', encoding="utf-8")
+            plik = open(str(p) + '.txt', 'r', encoding="utf-8")
     return
 
 
@@ -201,8 +201,8 @@ def relacja(nazwa, nr, relacja):
 
 def przepisz(stary, nowy):
     """przepisuje zawartosc starego pliku do nowego"""
-    s = codecs.open(str(stary) + ".txt", "r", encoding="utf-8")
-    n = codecs.open(str(nowy) + ".txt", "w", encoding="utf-8")
+    s = open(str(stary) + ".txt", "r", encoding="utf-8")
+    n = open(str(nowy) + ".txt", "w", encoding="utf-8")
     for line in s:
         n.write(line)
     s.close()
@@ -212,8 +212,8 @@ def przepisz(stary, nowy):
 
 def wiki(wyraz):
     """sprawdzanie tłumaczenia wyrazu w Wikisłowniku - alternatywa dla Piotrowskiego/Saloniego"""
-    # plik = codecs.open('zrzut.txt','w',encoding="utf-8")
-    log = codecs.open('translatelog.txt', 'w', encoding="utf-8")
+    # plik = open('zrzut.txt','w',encoding="utf-8")
+    log = open('translatelog.txt', 'w', encoding="utf-8")
     info = ''
     opener = urllib.request.build_opener()
     opener.addheaders = [('User-agent', 'Mozilla/5.0')]  # , 'Accept-Charset: iso-8859-5')]
@@ -271,8 +271,8 @@ def wiki(wyraz):
 
 def wikip(wyraz):
     """sprawdzanie tłumaczenia wyrazu w Wikipedii - alternatywa dla Piotrowskiego/Saloniego"""
-    # plik = codecs.open('zrzut.txt','w',encoding="utf-8")
-    log = codecs.open('translatelog.txt', 'w', encoding="utf-8")
+    # plik = open('zrzut.txt','w',encoding="utf-8")
+    log = open('translatelog.txt', 'w', encoding="utf-8")
     info = ''
     opener = urllib.request.build_opener()
     opener.addheaders = [('User-agent', 'Mozilla/5.0')]  # , 'Accept-Charset: iso-8859-5')]
@@ -322,8 +322,8 @@ def wikip(wyraz):
 
 def giga(wyraz):
     """sprawdzanie tłumaczenia wyrazu w Gigadictionary online"""
-    # plik = codecs.open('zrzut.txt','w',encoding="utf-8")
-    log = codecs.open('translatelog.txt', 'w', encoding="utf-8")
+    # plik = open('zrzut.txt','w',encoding="utf-8")
+    log = open('translatelog.txt', 'w', encoding="utf-8")
     info = ''
     opener = urllib.request.build_opener()
     opener.addheaders = [('User-agent', 'Mozilla/5.0')]  # , 'Accept-Charset: iso-8859-5')]
@@ -408,8 +408,8 @@ def setuj(seq, idfun=None):
 
 def sumuj(plik1, plik2):
     """tworzy sumę mnogościową synsetów przetworzonych w dwóch plikach"""
-    p1 = codecs.open(str(plik1) + ".txt", "r", encoding="utf-8")
-    p2 = codecs.open(str(plik2) + ".txt", "r", encoding="utf-8")
+    p1 = open(str(plik1) + ".txt", "r", encoding="utf-8")
+    p2 = open(str(plik2) + ".txt", "r", encoding="utf-8")
 
     tab1 = dict()
     for linia in p1:
@@ -444,7 +444,7 @@ def to_database(par):
         db = MySQLdb.connect(user="root", passwd="", db="local_plwn")
         cursor = db.cursor()
         pos = 2
-        wyniki = codecs.open("drudzy.txt", "r", encoding="utf-8")
+        wyniki = open("drudzy.txt", "r", encoding="utf-8")
         for linia in wyniki:
             l = (linia.strip()).split()
             # print len(l)
@@ -464,7 +464,7 @@ def to_database(par):
         comm = ""
         own = "k.p"
 
-        syns = codecs.open("synsets_text.txt", "r", encoding="utf-8")
+        syns = open("synsets_text.txt", "r", encoding="utf-8")
         for linia in syns:
             l = (linia.strip()).split()
             # print len(l)
@@ -479,7 +479,7 @@ def to_database(par):
 
         jedn = baza.findall('lexical-unit')  # jednostki leksykalne
         # jednostki=dict() # budujemy słownik { id : jednostka }
-        # units = codecs.open("units.txt", "r", encoding="utf-8")
+        # units = open("units.txt", "r", encoding="utf-8")
 
         db = MySQLdb.connect(user="root", passwd="", db="local_plwn")
         cursor = db.cursor()

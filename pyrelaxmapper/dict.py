@@ -3,7 +3,6 @@
 from xml.etree.ElementTree import ElementTree
 from . import tools
 import time
-import codecs
 
 
 def _load_units(node, file):
@@ -79,48 +78,53 @@ def build(xml_file, nouns_only=True):
     db = ElementTree().parse(xml_file)
 
     db_units = db.findall('lexical-unit')
-    with codecs.open("data/units.txt", "w", encoding="utf-8") as file:
+    with open("data/units.txt", "w", encoding="utf-8") as file:
         lexical_units = _load_units(db_units, file)
         print("Loaded lexical units.")
 
     db_synsets = db.findall('synset')
-    with codecs.open("data/synsets.txt", "w", encoding="utf-8") as file_ids,\
-            codecs.open("data/synsets_text.txt", "w", encoding="utf-8") as file_text:
+    with open("data/synsets.txt", "w", encoding="utf-8") as file_ids,\
+            open("data/synsets_text.txt", "w", encoding="utf-8") as file_text:
         _load_synsets(db_synsets, file_ids, file_text, lexical_units, nouns_only)
         print("Loaded synsets.")
 
     db_relations = db.findall('synsetrelations')
-    with codecs.open("data/synset_hiperonimia.txt", "w", encoding="utf-8") as file_hiper,\
-            codecs.open("data/synset_hiponimia.txt", "w", encoding="utf-8") as file_hipo:
+    with open("data/synset_hiperonimia.txt", "w", encoding="utf-8") as file_hiper,\
+            open("data/synset_hiponimia.txt", "w", encoding="utf-8") as file_hipo:
         _load_hiper_hipo(db_relations, file_hiper, file_hipo)
         print("Loaded hipernymy and hiponymy.")
 
 
-def _save_trans(tree, counter, file):
-    """Parse translations from tree to file."""
-    for i in range(len(tree)):
-        phrase = ""
-        for j in range(len(tree[i])):
-            try:
-                new = str(tree[i][j].text)
-                mapping = [(' ', '_'), ('(', ''), (')', ''), ('the_', ''), ('The_', '')]
-                for k, v in mapping:
-                    new = new.replace(k, v)
-                phrase = phrase + new.replace("/", " ") + str(" ")
-            except UnicodeEncodeError:
-                counter = counter + 1
-                print("Encoding error: ", counter)
-        phrase = phrase + "\n"
-        file.write(phrase)
-
-
 def build2():
-    """Extract translations to files."""
-    counter = 0
-    parts = ("data/PL-ANG/A-J.txt", "data/PL-ANG/K-P.txt", "data/PL-ANG/R-Z.txt")
-    with codecs.open("data/dict.txt", "w", encoding="utf-8") as dict_new:
-        for part in parts:
-            _save_trans(part, counter, dict_new)
+    """zrzucanie slownika do pliku"""
+    licznik = 0
+    nowy = open("data/dict.txt", "w", encoding="utf-8")
+    for i in range(3):
+        if i == 0:
+            part = ElementTree().parse("data/PL-ANG/A-J.txt")
+        if i == 1:
+            part = ElementTree().parse("data/PL-ANG/K-P.txt")
+        if i == 2:
+            part = ElementTree().parse("data/PL-ANG/R-Z.txt")
+        for i in range(len(part)):
+            haslo = ""
+            for j in range(len(part[i])):
+                try:
+                    nowe = part[i][j].text
+                    nowe = (
+                        (((nowe.replace(' ', '_')).replace('(', '')).replace(')', '')).replace(
+                            'the_',
+                            '')).replace(
+                        'The_', '')
+                    haslo = haslo + nowe.replace("/", " ") + str(" ")
+                except UnicodeEncodeError:
+                    licznik = licznik + 1
+                    print("problem z kodowaniem: ", licznik)
+            # slownik.append(haslo.split())
+            haslo = haslo + "\n"
+            nowy.write(haslo)
+    nowy.close()
+    return
 
 
 def _translate_unit(unit, dict_, ps, ws, wp, file_trans, file_not_trans):
@@ -183,7 +187,7 @@ def translate():
     """Translate plWordNet lexical units."""
     print("START")
     units = []
-    with codecs.open("data/units.txt", "r", encoding="utf-8") as file:
+    with open("data/units.txt", "r", encoding="utf-8") as file:
         for line in file:
             l = ((line.strip()).split())[1:]
             # perhaps use set?
@@ -192,7 +196,7 @@ def translate():
         print("Loaded ", len(units), " units: ", units[0:10])
 
     dict_ = []
-    with codecs.open("data/dict.txt", "r", encoding="utf-8") as file:
+    with open("data/dict.txt", "r", encoding="utf-8") as file:
         # list comprehension?
         for line in file:
             l = (line.strip()).split()
@@ -200,8 +204,8 @@ def translate():
         print("Loaded dict")
 
     # Translate all units
-    with codecs.open("data/translated.txt", "w", encoding="utf-8") as file_trans,\
-            codecs.open("data/not_translated.txt", "w", encoding="utf-8") as file_not_trans:
+    with open("data/translated.txt", "w", encoding="utf-8") as file_trans,\
+            open("data/not_translated.txt", "w", encoding="utf-8") as file_not_trans:
         ps = 0  # translated using Piotrowskim-Salonim
         ws = 0  # translated using Wikislownikiem
         wp = 0  # translated using Wikipedia

@@ -1,24 +1,25 @@
 # -*- coding: utf-8 -*-
-from nltk.corpus import wordnet as pwn
-
 import os
-# import string
-import time
-import codecs
-import numpy
 import random
 import sys
-# import warnings
-# from . import tools
+import time
+import logging
+
+import numpy as np
+from nltk.corpus import wordnet as pwn
+
+from pyrelaxmapper import conf
+
+logger = logging.getLogger()
 
 
 def _load_inputs():
     """Load input data: translations, synsets, units."""
-    synsety = codecs.open("data/synsets.txt", "r", encoding="utf-8")  # zrzuty bazy
-    jednostki = codecs.open("data/units.txt", "r", encoding="utf-8")
+    synsety = open(conf.results('synsets.txt'), 'r', encoding='utf-8')  # zrzuty bazy
+    jednostki = open(conf.results('units.txt'), 'r', encoding='utf-8')
 
-    trans = codecs.open("data/translated.txt", "r",
-                        encoding="utf-8")  # tlumaczenia jednostek leksykalnych
+    # tlumaczenia jednostek leksykalnych
+    trans = open(conf.results('translations.txt'), 'r', encoding='utf-8')
 
     # Create a parser for this!!!
     tran = dict()  # { slowo : [tlumaczenie_1, tlumaczenie_2, ...] }
@@ -44,7 +45,7 @@ def _load_inputs():
     return tran, syns, jedn
 
 
-def _translate_unit(synset, jedn, tran, log):
+def _translate_unit(synset, jedn, tran):
     """Search for translation for lexical unit."""
     tlumaczenia = []
     slowo = ''
@@ -55,7 +56,7 @@ def _translate_unit(synset, jedn, tran, log):
                 tlumaczenia.append(tr.lower())  # tlumaczenia = tlumaczenie calego synsetu
         except KeyError:
             info = "KeyError: brak " + slowo + " w slowniku lub problem z kodowaniem?\n"
-            log.write(info)
+            logger.info(info)
 
     if tlumaczenia:
         if type(tlumaczenia[0]) == list:
@@ -63,7 +64,7 @@ def _translate_unit(synset, jedn, tran, log):
     return slowo, tlumaczenia
 
 
-def _search_pwn(tlumaczenia, slowo, log):
+def _search_pwn(tlumaczenia, slowo):
     """Get PWN synsets matching translations."""
     pwn_syns = []  # miejsce na synsety PWN zawierajace tlumaczenia naszego synsetu
     angielski = []  #
@@ -73,9 +74,8 @@ def _search_pwn(tlumaczenia, slowo, log):
             pwn_syns = pwn.synsets(term)  # !!!
         except AttributeError:  # dziwny blad, ale nie zdarza sie czesto
             info = ("AttributeError: blad najprawdopodobniej w wordnet.py; "
-                    "miejsce w programie: ") + slowo + " - " + str(tlumaczenia) + "\n"
-            print(("blad przy ", term))
-            log.write(info)
+                    "miejsce w programie: ") + slowo + " - " + term + " - " + str(tlumaczenia)
+            logger.info(info)
             continue
         for j in pwn_syns:
             jj = (str(j))[8:len(str(j)) - 2]  # okrajamy: Synset('aaa.n.01') -> 'aaa.n.01'
@@ -86,38 +86,39 @@ def _search_pwn(tlumaczenia, slowo, log):
     return angielski
 
 
-def _save_monosemous(aktualny, zrobione, pwn_synsets, jedn, syns, pierwsi, pierwsi2, log):
+def _save_monosemous(aktualny, zrobione, pwn_synsets, jedn, syns, pierwsi, pierwsi2):
     """Save monosemous word, including statistics about it."""
     if aktualny not in zrobione:
         zrobione.append(aktualny)
-    info = str(aktualny) + " " + pwn_synsets[0] + "\n"
+    info = aktualny + " " + pwn_synsets[0] + "\n"
     pierwsi.write(info)  # dopisujemy do pliku z jednoznacznymi powiazaniami
     # print info
     try:  # chcemy zapisac pelna informacje o synsecie
-        info = str(aktualny) + " " + str(
-            [jedn[str(i)] for i in syns[str(aktualny)]]) + "->" + str(
+        info = aktualny + " " + str(
+            [jedn[str(i)] for i in syns[aktualny]]) + "->" + str(
             pwn_synsets) + ": " + str(pwn.synset(pwn_synsets[0]).lemma_names) + "\n"
         pierwsi2.write(info)
     except KeyError:
-        info = "KeyError w synsecie " + str(aktualny) + " - ang. " + str(
+        info = "KeyError w synsecie " + aktualny + " - ang. " + str(
             pwn_synsets) + "\n"
-        log.write(info)
+        logger.info(info)
 
 
 def _initial_weights(aktualny, zrobione, pwn_synsets, tlumaczenia, jedn, syns,
-                     pierwsi, pierwsi2, pozostali, pozostali2, pozostali3, nowe, log):
+                     pierwsi, pierwsi2, pozostali, pozostali2, pozostali3, nowe):
     pwn_len = len(pwn_synsets)
     # zmierzmy wstepne wagi na podstawie liczby tlumaczen obecnych w kazdym synsecie
     wagi = [0 for x in pwn_synsets]
     # Translation is in the synset name or its members
     for a in range(pwn_len):  # indeks w tablicach: angielski i wagi
         for t in tlumaczenia:
-            if (t in pwn.synset(pwn_synsets[a]).lemma_names) or (
-                    str(pwn.synset(pwn_synsets[a])).rfind(
-                        t) != -1):  # tlumaczenie jest w nazwie synsetu lub jego skladowych
+            pwn_synset = pwn.synset(pwn_synsets[a])
+            lemma_names = pwn_synset.lemma_names()
+            # tlumaczenie jest w nazwie synsetu lub jego skladowych
+            if (t in lemma_names) or (t in pwn_synset.name()):
                 wagi[a] = wagi[a] + 1
 
-    info = str(aktualny)
+    info = aktualny
     if 0 in wagi:  # jesli juz teraz mamy wskazowki co do powiazania
         for a in range(pwn_len):
             info = info + " " + pwn_synsets[a] + " " + str(wagi[a])
@@ -126,33 +127,31 @@ def _initial_weights(aktualny, zrobione, pwn_synsets, tlumaczenia, jedn, syns,
 
     if wagi.count(0) == len(wagi) - 1:  # tylko jeden przetrwal
         if aktualny not in zrobione:
-            info = str(aktualny) + " " + pwn_synsets[wagi.index(sum(wagi))] + "\n"
+            info = aktualny + " " + pwn_synsets[wagi.index(sum(wagi))] + "\n"
             pierwsi.write(info)
             # print "z nowych wag: ", info
             nowe = nowe + 1
             # time.sleep(1)
             try:
-                info = str(aktualny) + " " + str(
-                    [jedn[str(i)] for i in syns[str(aktualny)]]) + "->" + str(
+                info = aktualny + " " + str(
+                    [jedn[str(i)] for i in syns[aktualny]]) + "->" + str(
                     pwn_synsets[wagi.index(sum(wagi))]) + ": " + str(
                     pwn.synset(pwn_synsets[wagi.index(sum(wagi))]).lemma_names) + "\n"
                 pierwsi2.write(info)
             except KeyError:
-                info = "KeyError w synsecie " + str(aktualny) + " - ang. " + str(
+                info = "KeyError w synsecie " + aktualny + " - ang. " + str(
                     pwn_synsets) + "\n"
-                log.write(info)
+                logger.info(info)
                 # wyrzucamy kandydatow z waga 0
     else:
-        info = str(aktualny)
-        for a in range(pwn_len):
-            if wagi[a] != 0:
-                info = info + " " + pwn_synsets[a]
-        if info != str(aktualny):
+        info = aktualny + ' '.join(syn for i, syn in enumerate(pwn_synsets) if wagi[i])
+
+        if info != aktualny:
             info = info + "\n"
             pozostali.write(info)
             try:
-                info = str(aktualny) + " " + str(
-                    [jedn[str(i)] for i in syns[str(aktualny)]]) + " ->"
+                info = aktualny + " " + str(
+                    [jedn[str(i)] for i in syns[aktualny]]) + " ->"
                 for a in range(pwn_len):
                     if wagi[a] != 0:
                         info = info + " | " + pwn_synsets[a] + ": " + str(
@@ -160,24 +159,20 @@ def _initial_weights(aktualny, zrobione, pwn_synsets, tlumaczenia, jedn, syns,
                 info = info + "\n\n"
                 pozostali2.write(info)
             except KeyError:
-                info = "KeyError przy zapisie pelnej informacji o synsecie" + str(
-                    aktualny) + " - " + str(pwn_synsets) + "\n"
-                log.write(info)
+                info = "KeyError przy zapisie pelnej informacji o synsecie" + aktualny \
+                       + " - " + str(pwn_synsets) + "\n"
+                logger.info(info)
 
 
 def one():  # pierwsza iteracja
-    # use data directory
-
     # LOAD FILES
-    pierwsi = codecs.open("data/pierwsi.txt", "a", encoding="utf-8")  # surowy wynik rzutowania
-    pozostali = codecs.open("data/pozostali.txt", "a", encoding="utf-8")
+    pierwsi = open(conf.results('pierwsi.txt'), 'a', encoding='utf-8')  # surowy wynik rzutowania
+    pozostali = open(conf.results('pozostali.txt'), 'a', encoding='utf-8')
 
-    pierwsi2 = codecs.open("data/pierwsi2.txt", "a", encoding="utf-8")  # wynik z opisami synsetow
-    pozostali2 = codecs.open("data/pozostali2.txt", "a", encoding="utf-8")
-    pozostali3 = codecs.open("data/pozostali3.txt", "a", encoding="utf-8")  # wynik extra miary
-
-    # Use proper logger
-    log = codecs.open("log.txt", "a", encoding="utf-8")
+    # wynik z opisami synsetow
+    pierwsi2 = open(conf.results('pierwsi2.txt'), 'a', encoding='utf-8')
+    pozostali2 = open(conf.results('pozostali2.txt'), 'a', encoding='utf-8')
+    pozostali3 = open(conf.results('pozostali3.txt'), 'a', encoding='utf-8')  # wynik extra miary
 
     print("przetwarzanie wstepne - wrzucanie plikow do tablic")
     tran, syns, jedn = _load_inputs()
@@ -189,19 +184,19 @@ def one():  # pierwsza iteracja
     print("start algorytmu")
     tic = time.clock()
     for synset in list(syns.items()):
-        aktualny = synset[0]  # id aktualnie badanego polskiego synsetu
-        slowo, tlumaczenia = _translate_unit(synset, jedn, tran, log)
+        aktualny = str(synset[0])  # id aktualnie badanego polskiego synsetu
+        slowo, tlumaczenia = _translate_unit(synset, jedn, tran)
 
-        pwn_synsets = _search_pwn(tlumaczenia, slowo, log)
+        pwn_synsets = _search_pwn(tlumaczenia, slowo)
         pwn_len = len(pwn_synsets)  # tylu mamy kandydatow
 
         if pwn_len == 0:  # nic nie znalezlismy
             not_translated = not_translated + 1
         if pwn_len == 1:  # mamy tylko jeden synset z tlumaczeniem = jednego kandydata
-            _save_monosemous(aktualny, zrobione, pwn_synsets, jedn, syns, pierwsi, pierwsi2, log)
+            _save_monosemous(aktualny, zrobione, pwn_synsets, jedn, syns, pierwsi, pierwsi2)
         if pwn_len > 1:
             _initial_weights(aktualny, zrobione, pwn_synsets, tlumaczenia, jedn, syns,
-                             pierwsi, pierwsi2, pozostali, pozostali2, pozostali3, nowe, log)
+                             pierwsi, pierwsi2, pozostali, pozostali2, pozostali3, nowe)
 
     toc = time.clock()
     print(("czas: ", toc - tic, " nieprzetlumaczone: ", not_translated, " nowe: ", nowe))
@@ -210,7 +205,6 @@ def one():  # pierwsza iteracja
     pozostali.close()
     pozostali2.close()
     pozostali3.close()
-    log.close()
 
 
 def test(c, m):
@@ -221,10 +215,10 @@ def test(c, m):
     print(("podsumowanie: ", wszystkie))
     # Completion condition ! This needs to be analyzed
     while sum(wynik[1:4]):  # cokolwiek sie zmienilo
-        with codecs.open("data/drudzy.txt", "r", encoding="utf-8") as drudzy,\
-                codecs.open("data/pierwsi.txt", "a", encoding="utf-8") as pierwsi:
+        with open(conf.results('drudzy.txt'), 'r', encoding='utf-8') as drudzy,\
+                open(conf.results('pierwsi.txt'), 'a', encoding='utf-8') as pierwsi:
             pierwsi.write(drudzy.read())
-        os.remove('data/drudzy.txt')
+        os.remove(conf.results('drudzy.txt'))
         wynik = two(c, m)
         print(("kolejna iteracja: ", wynik))
         wszystkie = wszystkie + wynik[1:]
@@ -235,7 +229,7 @@ def test(c, m):
 def _load_two():
         # wczytujemy dane z pliku pierwsi.txt, czyli juz istniejace przypisania
     gotowe = {}  # slownik juz przypisanych jednoznacznie synsetow
-    with codecs.open('data/pierwsi.txt', 'r', encoding="utf-8") as pierwsi:
+    with open(conf.results('pierwsi.txt'), 'r', encoding='utf-8') as pierwsi:
         for linia in pierwsi:
             linia = linia.replace('*manually_added:', '').strip()
 
@@ -245,7 +239,7 @@ def _load_two():
 
     # wczytujemy powiazania do zbadania z pliku pozostali.txt
     rest = {}  # slownik potencjalnych przypisan
-    with codecs.open('data/pozostali.txt', 'r', encoding="utf-8") as pozostali:
+    with open(conf.results('pozostali.txt'), 'r', encoding='utf-8') as pozostali:
         l = 0
         for linia in pozostali:
             tab = (linia.strip()).split()
@@ -257,7 +251,7 @@ def _load_two():
 
     # wczytujemy relacje hiperonimii z pliku
     hiper = {}
-    with codecs.open('data/synset_hiperonimia.txt', 'r', encoding="utf-8") as hiperonimia:
+    with open(conf.results('synset_hiperonimia.txt'), 'r', encoding='utf-8') as hiperonimia:
         for linia in hiperonimia:
             tab = (linia.strip()).split()
             if int(tab[0]) in hiper:  # jesli juz byl jakis hiponim
@@ -268,7 +262,7 @@ def _load_two():
 
     # wczytujemy relacje hiponimii z pliku
     hipo = {}
-    with codecs.open('data/synset_hiponimia.txt', 'r', encoding="utf-8") as hiponimia:
+    with open(conf.results('synset_hiponimia.txt'), 'r', encoding='utf-8') as hiponimia:
         for linia in hiponimia:
             tab = (linia.strip()).split()
             if int(tab[0]) in hipo:  # jesli juz byl jakis hiponim
@@ -279,7 +273,7 @@ def _load_two():
 
     # slownik potencjalnych przypisan
     syns_text = {}
-    with codecs.open("data/synsets_text.txt", "r", encoding="utf-8") as synsety:
+    with open(conf.results('synsets_text.txt'), 'r', encoding='utf-8') as synsety:
         for linia in synsety:
             tab = (linia.strip()).split()
             syns_text[int(tab[0])] = tab[1:]
@@ -288,8 +282,8 @@ def _load_two():
 
 
 def two(constr, mode):  # druga i dalsze iteracje
-    drudzy = codecs.open('data/drudzy.txt', 'w', encoding="utf-8")
-    bezzmian = codecs.open('data/bezzmian.txt', 'w', encoding="utf-8")
+    drudzy = open(conf.results('drudzy.txt'), 'w', encoding='utf-8')
+    bezzmian = open(conf.results('bezzmian.txt'), 'w', encoding='utf-8')
 
     gotowe, rest, hiper, hipo, syns_text = _load_two()
 
@@ -322,7 +316,7 @@ def two(constr, mode):  # druga i dalsze iteracje
         kandydaci = i[1]
         kandydatow = len(kandydaci)
         srednia = 1. / kandydatow  # poczatkowa wartosc wagi dla kazdego powiazania
-        wagi = (numpy.ones(kandydatow)) * srednia
+        wagi = (np.ones(kandydatow)) * srednia
         # wagi2 = wagi[:]
 
         # print "\n--- Badany synset: ", polski, ": ", syns_text[polski], "\n"
@@ -670,7 +664,7 @@ def two(constr, mode):  # druga i dalsze iteracje
 
         if (mode == 't') or (mode == 'i' and polski not in do_spr):
             # jesli wagi sie nie zmienily
-            if numpy.all(wagi == (numpy.ones(kandydatow)) * srednia):
+            if np.all(wagi == (np.ones(kandydatow)) * srednia):
                 info = str(polski)
                 for k in kandydaci:
                     info = info + " " + str(k)
@@ -679,7 +673,7 @@ def two(constr, mode):  # druga i dalsze iteracje
                     info)  # print "\nAlgorytm obecnie nie jest w stanie zasugerowac przypisania."
             else:
                 try:
-                    maxind = numpy.nonzero([m == max(wagi) for m in wagi])[
+                    maxind = np.nonzero([m == max(wagi) for m in wagi])[
                         0]  # znajdujemy numer(y) kandydata(ów) o najwyzszej(ych) wadze(gach)
                 except IndexError:
                     maxind = 0
@@ -692,7 +686,7 @@ def two(constr, mode):  # druga i dalsze iteracje
         if mode == 'i' and polski in do_spr:
             propozycje = propozycje + 1
             try:
-                maxind = numpy.nonzero([m == max(wagi) for m in wagi])[
+                maxind = np.nonzero([m == max(wagi) for m in wagi])[
                     0]  # znajdujemy numer(y) kandydata(ów) o najwyzszej(ych) wadze(gach)
             except IndexError:
                 maxind = 0
@@ -749,7 +743,7 @@ def two(constr, mode):  # druga i dalsze iteracje
     print("zapisane samodzielnie przez algorytm: ", zrobione)
     bezzmian.close()
     drudzy.close()
-    return numpy.array([toc - tic, propozycje, wybrane, zrobione])
+    return np.array([toc - tic, propozycje, wybrane, zrobione])
 
 
 def main(n):

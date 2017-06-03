@@ -4,7 +4,7 @@ import os
 
 import click
 
-from pyrelaxmapper import data, db, conf
+from pyrelaxmapper import data, db, conf, rl
 from pyrelaxmapper.plwordnet import queries as plquery, files as plfile
 
 
@@ -76,6 +76,19 @@ def make_dicts():
     with open(filename, 'w') as file:
         file.write('\n'.join(key+' '+' '.join(terms) for key, terms in lang_dict.items()))
     click.secho('Done. Results stored in: {}'.format(filename), fg='blue')
+
+
+def make_one():
+    """Create mapping between plWN and PWN."""
+    files = ['pierwsi', 'pierwsi2', 'pozostali', 'pozostali2', 'pozostali3']
+    for file in files:
+        path = conf.results(file+'.txt')
+        if os.path.exists(path):
+            os.remove(path)
+
+    click.secho('Cleaned previous files. Running one().', fg='blue')
+    rl.one()
+    click.secho('Done.', fg='blue')
 
 
 def make_extract():

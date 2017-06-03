@@ -12,21 +12,24 @@ def main():
     pass
 
 
-@main.group(chain=True)
-def make():
-    """Make target action."""
+# TODO: Document possible arguments
+@main.group()
+@click.argument('actions', nargs=-1)
+def make(actions):
+    """Make target ACTIONS in correct order. Chainable.
 
-
-@make.command('extract')
-def make_extract():
-    """Extract data from plWordNet DB."""
-    commands.make_extract()
-
-
-@make.command('dicts')
-def make_dicts():
-    """Make a cascading dictionary."""
-    commands.make_dicts()
+    \b
+    ACTIONS:
+      all      Make all actions.
+      dicts    Make translation dicts.
+      extract  Extract plWordNet data from DB.
+      one      Run step one of algorithm."""
+    if any(action in ['dicts', 'all'] for action in actions):
+        commands.make_dicts()
+    if any(action in ['extract', 'all'] for action in actions):
+        commands.make_extract()
+    if any(action in ['one', 'all'] for action in actions):
+        commands.make_one()
 
 
 @main.command()
