@@ -8,6 +8,7 @@ from pyrelaxmapper.plwordnet import queries as plqueries
 logger = logging.getLogger()
 
 
+# TODO: Combine this and XML dict loading (Receive term and translations by generator)
 def cascade_dicts(lines):
     """Creates a cascading dictionary from source-target sources
 
@@ -22,7 +23,7 @@ def cascade_dicts(lines):
         Cascaded single dict."""
     lang_dict = {}
     for line in lines:
-        term, translation = _parse_translation(line)
+        term, translation = _clean_translation(line)
         if term and translation and translation not in lang_dict.get(term, []):
             lang_dict.setdefault(term, []).append(translation)
 
@@ -30,9 +31,9 @@ def cascade_dicts(lines):
 
 
 # TODO: Consider improving this.
-def _parse_translation(line):
+def _clean_translation(line):
     """Parse tab-delimited line to extract term and translation."""
-    rep = {' ': '_', '(': '', ')': '', 'the ': ''}
+    rep = {' ': '_', '(': '', ')': '', 'the ': '', '/': ''}
     cols = [utils.multi_replace(col.strip().lower(), rep) for col in line.split('\t')]
     if len(cols) != 2:
         logger.debug('Wrong format in line: {0}\n'.format(line))

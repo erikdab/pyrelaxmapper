@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-import codecs
+
 # import os
 
 plik = open('pierwsi2.txt', 'r')
 
-wyj = codecs.open('pierwsi_dobre.txt', 'w', 'utf-8')
+wyj = open('pierwsi_dobre.txt', 'w', 'utf-8')
 
 for line in plik:
     # Is this needed at all?
@@ -20,8 +20,8 @@ for line in plik:
 wyj.close()
 plik.close()
 
-# plik=codecs.open('pierwsi_tmp.txt','r','utf-8')
-# wyj=codecs.open('pierwsi_dobre.txt','w','utf-8')
+# plik=open('pierwsi_tmp.txt','r','utf-8')
+# wyj=open('pierwsi_dobre.txt','w','utf-8')
 
 # wyj.close()
 # plik.close()
