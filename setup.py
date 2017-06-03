@@ -16,6 +16,7 @@ requirements = [
     'colorama>=0.3',        # Required for colors on Windows
     'mysqlclient>=1.3',
     'sqlalchemy>=1.1',
+    'numpy>=1.10',          # Because Python 3.3
 ]
 
 test_requirements = [
