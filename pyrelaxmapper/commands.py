@@ -20,28 +20,28 @@ def make_session(db_name='db-default'):
 
 def db_info():
     """List DB and external datasets info."""
+    limit = 5
+
+    click.secho('Listing file-based dataset summaries:', fg='blue')
+    with open(conf.last_in_paths('domains.txt')) as file:
+        domains = plfile.load_domains(file)
+    click.echo('Domains ({} out of {} total):'.format(limit, len(domains)))
+    click.echo('\n'.join(['\t'.join(domain) for domain in domains[0:limit]]))
+
+    with open(conf.last_in_paths('pos.txt')) as file:
+        pos = plfile.load_pos(file)
+    click.echo('POS ({} out of {} total):'.format(limit, len(pos)))
+    click.echo('\n'.join(['\t'.join(pos_) for pos_ in pos[0:limit]]))
+
+    click.secho('Listing plWordNet DB summaries:')
     session = make_session()
     version = plquery.version(session)
     click.echo('plWN version: {}'.format(version))
-
-    limit = 5
-
     pwn_mappings = plquery.pwn_mappings(session)
     click.secho('Preexisting plWN-PWN Mappings ({} out of {}):'
                 .format(limit, pwn_mappings.count()), fg='blue')
     pwn_mappings = pwn_mappings.limit(limit).all()
     click.echo('\n'.join(str(mapping) for mapping in pwn_mappings))
-
-    click.secho('Listing file-based dataset summaries:', fg='blue')
-    with open(conf.search_in_paths('domains.txt')[-1]) as file:
-        domains = plfile.load_domains(file)
-    click.echo('Domains ({} out of {} total):'.format(limit, len(domains)))
-    click.echo('\n'.join(['\t'.join(domain) for domain in domains[0:limit]]))
-
-    with open(conf.search_in_paths('pos.txt')[-1]) as file:
-        pos = plfile.load_pos(file)
-    click.echo('POS ({} out of {} total):'.format(limit, len(pos)))
-    click.echo('\n'.join(['\t'.join(pos_) for pos_ in pos[0:limit]]))
 
 
 def list_config():
@@ -78,22 +78,34 @@ def make_dicts():
     click.secho('Done. Results stored in: {}'.format(filename), fg='blue')
 
 
-def make_one():
-    """Create mapping between plWN and PWN."""
-    files = ['pierwsi', 'pierwsi2', 'pozostali', 'pozostali2', 'pozostali3']
-    for file in files:
-        path = conf.results(file+'.txt')
-        if os.path.exists(path):
-            os.remove(path)
-
-    click.secho('Cleaned previous files. Running one().', fg='blue')
-    rl.one()
-    click.secho('Done.', fg='blue')
-
-
 def make_extract():
     """Extract needed data from plWordNet DB."""
     session = make_session()
     click.secho('Extracting units, synsets, hiper and hiponyms from DB.', fg='blue')
     data.db_extract(session)
     click.secho('Done.', fg='blue')
+
+
+def make_clean():
+    """Clean ONLY mapping results."""
+    files = ['pierwsi', 'pierwsi2', 'pozostali', 'pozostali2', 'pozostali3']
+    for file in files:
+        path = conf.results(file+'.txt')
+        if os.path.exists(path):
+            os.remove(path)
+
+    click.secho('Cleaned mapping results.', fg='blue')
+
+
+def make_mono():
+    """Create monosemous mappings between plWN and PWN."""
+    click.secho('Running monosemous mapping.', fg='blue')
+    rl.one()
+    click.secho('Done monosemous mapping.', fg='blue')
+
+
+def make_poly():
+    """Create polysemous mappings between plWN and PWN."""
+    click.secho('Running polysemous mapping.', fg='blue')
+    rl.test()
+    click.secho('Done polysemous mapping.', fg='blue')

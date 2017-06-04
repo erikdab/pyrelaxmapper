@@ -13,247 +13,239 @@ from pyrelaxmapper import conf
 logger = logging.getLogger()
 
 
-def _load_inputs():
+def _load_data():
     """Load input data: translations, synsets, units."""
-    synsety = open(conf.results('synsets.txt'), 'r', encoding='utf-8')  # zrzuty bazy
-    jednostki = open(conf.results('units.txt'), 'r', encoding='utf-8')
 
-    # tlumaczenia jednostek leksykalnych
-    trans = open(conf.results('translations.txt'), 'r', encoding='utf-8')
+    # { word : [translation_1, translation_2, ...] }
+    with open(conf.results('translations.txt'), 'r', encoding='utf-8') as file:
+        dictionary = {}
+        for line in file:
+            line = (line.strip()).split()
+            dictionary[line[0]] = line[1:]
 
-    # Create a parser for this!!!
-    tran = dict()  # { slowo : [tlumaczenie_1, tlumaczenie_2, ...] }
-    for line in trans:
-        line = (line.strip()).split()
-        tran[line[0]] = line[1:]
-    trans.close()
-    print(("tlumaczenia wczytane: ", len(list(tran.keys()))))
+    # { nr_synset : [LU_1, LU_2, ...] }
+    with open(conf.results('synsets.txt'), 'r', encoding='utf-8') as file:
+        synsets = {}
+        for line in file:
+            line = (line.strip()).split()
+            synsets[line[0]] = line[1:]
 
-    syns = dict()  # { nr_synsetu : [LU_1, LU_2, ...] }
-    for line in synsety:
-        line = (line.strip()).split()
-        syns[line[0]] = line[1:]
-    synsety.close()
-    print(("synsety wczytane: ", len(list(syns.keys()))))
-
-    jedn = dict()  # { nr_LU : 'slowo' }
-    for line in jednostki:
-        line = (line.strip()).split()
-        jedn[line[0]] = line[1]
-    jednostki.close()
-    print(("jednostki wczytane: ", len(list(jedn.keys()))))
-    return tran, syns, jedn
+    # { nr_LU : 'word' }
+    with open(conf.results('units.txt'), 'r', encoding='utf-8') as file:
+        lunits = {}
+        for line in file:
+            line = (line.strip()).split()
+            lunits[line[0]] = line[1]
+    return dictionary, synsets, lunits
 
 
-def _translate_unit(synset, jedn, tran):
+def _translate_lunit(lunit_ids, lunits, dictionary):
     """Search for translation for lexical unit."""
-    tlumaczenia = []
-    slowo = ''
-    for i in synset[1]:
-        slowo = jedn[i] if i in jedn else ''
-        try:
-            for tr in tran[slowo]:  # przegladamy tlumaczenia naszego LU
-                tlumaczenia.append(tr.lower())  # tlumaczenia = tlumaczenie calego synsetu
-        except KeyError:
-            info = "KeyError: brak " + slowo + " w slowniku lub problem z kodowaniem?\n"
-            logger.info(info)
+    not_found = set()
+    translations = set()
+    for lunit_id in lunit_ids:
+        if lunit_id not in lunits:
+            logger.debug('LU {} cannot be found!'.format(lunit_id))
+        word = lunits[lunit_id] if lunit_id in lunits else ''
+        if word in dictionary:
+            translations.update([translation.lower() for translation in dictionary[word]])
+        else:
+            not_found.add(word)
 
-    if tlumaczenia:
-        if type(tlumaczenia[0]) == list:
-            tlumaczenia = tlumaczenia[0]  # bo mamy [[...]]
-    return slowo, tlumaczenia
+    return list(not_found), list(translations)
 
 
-def _search_pwn(tlumaczenia, slowo):
+def _search_pwn(source, translations):
     """Get PWN synsets matching translations."""
-    pwn_syns = []  # miejsce na synsety PWN zawierajace tlumaczenia naszego synsetu
-    angielski = []  #
-    for term in tlumaczenia:
+    pwn_synsets = set()
+    for term in translations:
         try:
-            # !!!				s = pwn.synsets(i,'n')
-            pwn_syns = pwn.synsets(term)  # !!!
-        except AttributeError:  # dziwny blad, ale nie zdarza sie czesto
-            info = ("AttributeError: blad najprawdopodobniej w wordnet.py; "
-                    "miejsce w programie: ") + slowo + " - " + term + " - " + str(tlumaczenia)
-            logger.info(info)
-            continue
-        for j in pwn_syns:
-            jj = (str(j))[8:len(str(j)) - 2]  # okrajamy: Synset('aaa.n.01') -> 'aaa.n.01'
-            # !!!				if jj[len(jj)-4]=='n' and jj not in angielski:
-            # jesli synset jest rzeczownikowy i nie byl już dodany
-            if jj not in angielski:  # !!!
-                angielski.append(jj)
-    return angielski
+            pwn_synsets.update(pwn_synset.name() for pwn_synset in pwn.synsets(term))
+        except AttributeError:
+            logger.debug(("AttributeError: blad najprawdopodobniej w wordnet.py; "
+                          "miejsce w programie: ") + source + " - " + term + " - " + str(
+                translations))
+    return list(pwn_synsets)
 
 
-def _save_monosemous(aktualny, zrobione, pwn_synsets, jedn, syns, pierwsi, pierwsi2):
-    """Save monosemous word, including statistics about it."""
-    if aktualny not in zrobione:
-        zrobione.append(aktualny)
-    info = aktualny + " " + pwn_synsets[0] + "\n"
-    pierwsi.write(info)  # dopisujemy do pliku z jednoznacznymi powiazaniami
-    # print info
-    try:  # chcemy zapisac pelna informacje o synsecie
-        info = aktualny + " " + str(
-            [jedn[str(i)] for i in syns[aktualny]]) + "->" + str(
-            pwn_synsets) + ": " + str(pwn.synset(pwn_synsets[0]).lemma_names) + "\n"
-        pierwsi2.write(info)
+def _mapping_info(source, lunits, synsets, pwn_synsets, weights):
+    """Format information about mappings."""
+    # if weights is None:
+    #     weights = np.array([1])
+
+    pl_lunits = []
+    try:
+        pl_lunits = [lunits[syn] for syn in synsets[source]]
     except KeyError:
-        info = "KeyError w synsecie " + aktualny + " - ang. " + str(
-            pwn_synsets) + "\n"
-        logger.info(info)
+        logger.info('KeyError in synset {} -> {}'.format(source, str(pwn_synsets)))
+
+    pwn_info = []
+    for i in weights.nonzero()[0]:
+        synset = pwn_synsets[i]
+        lemmas = pwn.synset(synset).lemma_names()
+        pwn_info.append('{}: {}'.format(synset, lemmas))
+    mapping_info = '{} {} -> {}\n'.format(source, str(pl_lunits), ' | '.join(pwn_info))
+    mappings = '{} {}\n'.format(source, ' '.join(pwn_synsets[i] for i in weights.nonzero()[0]))
+    return mappings, mapping_info
 
 
-def _initial_weights(aktualny, zrobione, pwn_synsets, tlumaczenia, jedn, syns,
-                     pierwsi, pierwsi2, pozostali, pozostali2, pozostali3, nowe):
-    pwn_len = len(pwn_synsets)
-    # zmierzmy wstepne wagi na podstawie liczby tlumaczen obecnych w kazdym synsecie
-    wagi = [0 for x in pwn_synsets]
-    # Translation is in the synset name or its members
-    for a in range(pwn_len):  # indeks w tablicach: angielski i wagi
-        for t in tlumaczenia:
-            pwn_synset = pwn.synset(pwn_synsets[a])
-            lemma_names = pwn_synset.lemma_names()
-            # tlumaczenie jest w nazwie synsetu lub jego skladowych
-            if (t in lemma_names) or (t in pwn_synset.name()):
-                wagi[a] = wagi[a] + 1
+def _stat_weights(weights, source, pwn_synsets):
+    # Statistics: If there is at least one weight==0, then we can eliminate it.
+    # Therefore we have learnt something.
+    # TODO: Consider how not important this is.. maybe remove
+    # Writes about weights!
+    nonzero_weights = len(weights.nonzero()[0])
+    if len(weights) - nonzero_weights > 0:
+        syn = ' '.join('{} {}'.format(syn, weights[i]) for i, syn in enumerate(pwn_synsets))
+        '{} {}\n'.format(source, syn)
 
-    info = aktualny
-    if 0 in wagi:  # jesli juz teraz mamy wskazowki co do powiazania
-        for a in range(pwn_len):
-            info = info + " " + pwn_synsets[a] + " " + str(wagi[a])
-        info = info + "\n"
-        pozostali3.write(info)
 
-    if wagi.count(0) == len(wagi) - 1:  # tylko jeden przetrwal
-        if aktualny not in zrobione:
-            info = aktualny + " " + pwn_synsets[wagi.index(sum(wagi))] + "\n"
-            pierwsi.write(info)
-            # print "z nowych wag: ", info
-            nowe = nowe + 1
-            # time.sleep(1)
-            try:
-                info = aktualny + " " + str(
-                    [jedn[str(i)] for i in syns[aktualny]]) + "->" + str(
-                    pwn_synsets[wagi.index(sum(wagi))]) + ": " + str(
-                    pwn.synset(pwn_synsets[wagi.index(sum(wagi))]).lemma_names) + "\n"
-                pierwsi2.write(info)
-            except KeyError:
-                info = "KeyError w synsecie " + aktualny + " - ang. " + str(
-                    pwn_synsets) + "\n"
-                logger.info(info)
-                # wyrzucamy kandydatow z waga 0
-    else:
-        info = aktualny + ' '.join(syn for i, syn in enumerate(pwn_synsets) if wagi[i])
+def _initial_weights(pwn_synsets, translations):
+    """Set initial weights based on the number of translations in every synset."""
+    weights = np.zeros(len(pwn_synsets))
 
-        if info != aktualny:
-            info = info + "\n"
-            pozostali.write(info)
-            try:
-                info = aktualny + " " + str(
-                    [jedn[str(i)] for i in syns[aktualny]]) + " ->"
-                for a in range(pwn_len):
-                    if wagi[a] != 0:
-                        info = info + " | " + pwn_synsets[a] + ": " + str(
-                            pwn.synset(pwn_synsets[a]).lemma_names)
-                info = info + "\n\n"
-                pozostali2.write(info)
-            except KeyError:
-                info = "KeyError przy zapisie pelnej informacji o synsecie" + aktualny \
-                       + " - " + str(pwn_synsets) + "\n"
-                logger.info(info)
+    # TODO: Consider if we can filter out more? Or add more weights some how
+    # Weights: sum of occurences of translations in synset
+    for i, synset in enumerate(pwn_synsets):
+        pwn_synset = pwn.synset(synset)
+        terms = pwn_synset.lemma_names() + [pwn_synset.name()]
+        weights[i] += sum(1 for t in translations if t in terms)
+
+    candidates = len(weights.nonzero()[0])
+    return weights, candidates
 
 
 def one():  # pierwsza iteracja
     # LOAD FILES
-    pierwsi = open(conf.results('pierwsi.txt'), 'a', encoding='utf-8')  # surowy wynik rzutowania
-    pozostali = open(conf.results('pozostali.txt'), 'a', encoding='utf-8')
+    # ALREADY MAPPED
+    mapped = open(conf.results('mapped.txt'), 'a', encoding='utf-8')
+    # TO MAP
+    remaining = open(conf.results('remaining.txt'), 'a', encoding='utf-8')
 
     # wynik z opisami synsetow
-    pierwsi2 = open(conf.results('pierwsi2.txt'), 'a', encoding='utf-8')
-    pozostali2 = open(conf.results('pozostali2.txt'), 'a', encoding='utf-8')
-    pozostali3 = open(conf.results('pozostali3.txt'), 'a', encoding='utf-8')  # wynik extra miary
+    # ALREADY MAPPED STATS
+    mapped_info = open(conf.results('mapped_info.txt'), 'a', encoding='utf-8')
+    # ???
+    remaining_info = open(conf.results('remaining_info.txt'), 'a', encoding='utf-8')
+    # EXTRA MEASURE STATS? What is it?
+    remaining_info2 = open(conf.results('remaining_info2.txt'), 'a', encoding='utf-8')
 
-    print("przetwarzanie wstepne - wrzucanie plikow do tablic")
-    tran, syns, jedn = _load_inputs()
-    print("koniec przetwarzania wstepnego")
+    logger.info('Loading data.')
+    dictionary, synsets, lunits = _load_data()
+    logger.info('Loaded translations, count: {}'.format(len(dictionary)))
+    logger.info('Loaded synsets, count: {}'.format(len(synsets)))
+    logger.info('Loaded lexical units, count: {}'.format(len(lunits)))
+    logger.info('Done.')
 
+    # use pickle! Simplifies every step!
+    # At the end of the algorithm, save to files for analysis.
+
+    remaining_c = 0
+    translated = 0
     not_translated = 0
-    nowe = 0
-    zrobione = []  # numery jednoznacznie powiazanych synsetow
-    print("start algorytmu")
+    using_weights = 0
+    mapped_list = []
+    no_translations = []
+    no_translations_lu = []
+    logger.info('Starting monosemous mappings.')
     tic = time.clock()
-    for synset in list(syns.items()):
-        aktualny = str(synset[0])  # id aktualnie badanego polskiego synsetu
-        slowo, tlumaczenia = _translate_unit(synset, jedn, tran)
+    for synset in list(synsets.items()):
+        source = str(synset[0])
+        lunit_ids = synset[1]
 
-        pwn_synsets = _search_pwn(tlumaczenia, slowo)
-        pwn_len = len(pwn_synsets)  # tylu mamy kandydatow
+        not_found, translations = _translate_lunit(lunit_ids, lunits, dictionary)
+        no_translations_lu.append('LUs not found in dictionary {}->{}'
+                                  .format(synset, ''.join(not_found)))
 
-        if pwn_len == 0:  # nic nie znalezlismy
+        pwn_synsets = _search_pwn(source, translations)
+
+        weights = np.array([1])
+        candidates = len(pwn_synsets)
+        if candidates > 1:
+            weights, candidates = _initial_weights(pwn_synsets, translations)
+
+        if pwn_synsets:
+            mappings, mapping_info = _mapping_info(source, lunits, synsets, pwn_synsets, weights)
+
+        if candidates == 0:
             not_translated = not_translated + 1
-        if pwn_len == 1:  # mamy tylko jeden synset z tlumaczeniem = jednego kandydata
-            _save_monosemous(aktualny, zrobione, pwn_synsets, jedn, syns, pierwsi, pierwsi2)
-        if pwn_len > 1:
-            _initial_weights(aktualny, zrobione, pwn_synsets, tlumaczenia, jedn, syns,
-                             pierwsi, pierwsi2, pozostali, pozostali2, pozostali3, nowe)
+            no_translations.append('Synset not found in dictionary {}: {}'
+                                   .format(source, str(lunit_ids)))
+        # Monosemous
+        if candidates == 1:
+            if source in mapped_list:
+                continue
+            translated += 1
+            if len(pwn_synsets) > candidates:
+                using_weights += 1
+
+            mapped.write(mappings)
+            mapped_info.write(mapping_info)
+        # Polysemous
+        else:
+            remaining_c += 1
+            remaining.write(mappings)
+            remaining_info.write(mapping_info)
 
     toc = time.clock()
-    print(("czas: ", toc - tic, " nieprzetlumaczone: ", not_translated, " nowe: ", nowe))
-    pierwsi.close()
-    pierwsi2.close()
-    pozostali.close()
-    pozostali2.close()
-    pozostali3.close()
+    logger.info('Time: {}; remaining {}; no translations {}; translated: {}, using weights: {}'
+                .format(toc - tic, remaining_c, not_translated, translated, using_weights))
+    logger.info('no_translations: {}, no_translations_lu: {}'
+                .format(len(no_translations), len(no_translations_lu)))
+
+    mapped.close()
+    mapped_info.close()
+    remaining.close()
+    remaining_info.close()
+    remaining_info2.close()
+    with open(conf.results('no_translations.txt'), 'w', encoding='utf-8') as file:
+        file.write('\n'.join(no_translations))
+    with open(conf.results('no_translations_lu.txt'), 'w', encoding='utf-8') as file:
+        file.write('\n'.join(no_translations_lu))
 
 
-def test(c, m):
-    """Second and other steps of the algorithm."""
-    wynik = two(c, m)
-    wszystkie = wynik[1:]  # wszystkie wyniki oprocz czasu bedziemy zliczac
-    print(("kolejna iteracja: ", wynik))
-    print(("podsumowanie: ", wszystkie))
-    # Completion condition ! This needs to be analyzed
-    while sum(wynik[1:4]):  # cokolwiek sie zmienilo
-        with open(conf.results('drudzy.txt'), 'r', encoding='utf-8') as drudzy,\
-                open(conf.results('pierwsi.txt'), 'a', encoding='utf-8') as pierwsi:
-            pierwsi.write(drudzy.read())
-        os.remove(conf.results('drudzy.txt'))
-        wynik = two(c, m)
-        print(("kolejna iteracja: ", wynik))
-        wszystkie = wszystkie + wynik[1:]
-        print(("podsumowanie: ", wszystkie))
-    return wszystkie
+def test(c='ii', m='t'):
+    """Relation Labeling iterations."""
+    iteration = 0
+    measures = None
+    # TODO: Completion condition ! This needs to be analyzed
+    while iteration == 0 or sum(measures[:3]):
+        if os.path.exists(conf.results('step2.txt')):
+            with open(conf.results('step2.txt'), 'r', encoding='utf-8') as step2, \
+                    open(conf.results('mapped.txt'), 'a', encoding='utf-8') as mapped:
+                mapped.write(step2.read())
+            os.remove(conf.results('step2.txt'))
+        time_, measures = two(c, m)
+        logger.info('Iteration #{}: {}'.format(iteration, time_))
+        logger.info('Summary : {}'.format(measures))
+        iteration += 1
+    return measures
 
 
 def _load_two():
-        # wczytujemy dane z pliku pierwsi.txt, czyli juz istniejace przypisania
-    gotowe = {}  # slownik juz przypisanych jednoznacznie synsetow
-    with open(conf.results('pierwsi.txt'), 'r', encoding='utf-8') as pierwsi:
-        for linia in pierwsi:
-            linia = linia.replace('*manually_added:', '').strip()
+    mapped = {}
+    with open(conf.results('mapped.txt'), 'r', encoding='utf-8') as file:
+        for line in file:
+            cols = line.replace('*manually_added:', '').strip().split()
+            mapped[int(cols[0])] = str(cols[1])
+        logger.info('Load already mapped.')
 
-            tab = linia.split()
-            gotowe[int(tab[0])] = str(tab[1])
-        print("wczytano pierwszych")
-
-    # wczytujemy powiazania do zbadania z pliku pozostali.txt
-    rest = {}  # slownik potencjalnych przypisan
-    with open(conf.results('pozostali.txt'), 'r', encoding='utf-8') as pozostali:
-        l = 0
-        for linia in pozostali:
-            tab = (linia.strip()).split()
-            if int(tab[0]) not in gotowe:
-                rest[tab[0]] = tab[1:]
+    remaining = {}
+    with open(conf.results('remaining.txt'), 'r', encoding='utf-8') as file:
+        done_count = 0
+        for line in file:
+            tab = (line.strip()).split()
+            if int(tab[0]) not in mapped:
+                remaining[tab[0]] = tab[1:]
             else:
-                l = l + 1
-        print("wczytano pozostalych poza ", l)  # l - liczba dotychczas rozstrzygnietych przypisan
+                done_count += 1
+        logger.info('Loaded remaining expect for already done: {}'.format(done_count))
 
     # wczytujemy relacje hiperonimii z pliku
     hiper = {}
     with open(conf.results('synset_hiperonimia.txt'), 'r', encoding='utf-8') as hiperonimia:
-        for linia in hiperonimia:
-            tab = (linia.strip()).split()
+        for line in hiperonimia:
+            tab = (line.strip()).split()
             if int(tab[0]) in hiper:  # jesli juz byl jakis hiponim
                 hiper[int(tab[0])].append(int(tab[1]))
             else:
@@ -263,8 +255,8 @@ def _load_two():
     # wczytujemy relacje hiponimii z pliku
     hipo = {}
     with open(conf.results('synset_hiponimia.txt'), 'r', encoding='utf-8') as hiponimia:
-        for linia in hiponimia:
-            tab = (linia.strip()).split()
+        for line in hiponimia:
+            tab = (line.strip()).split()
             if int(tab[0]) in hipo:  # jesli juz byl jakis hiponim
                 hipo[int(tab[0])].append(int(tab[1]))
             else:
@@ -274,107 +266,113 @@ def _load_two():
     # slownik potencjalnych przypisan
     syns_text = {}
     with open(conf.results('synsets_text.txt'), 'r', encoding='utf-8') as synsety:
-        for linia in synsety:
-            tab = (linia.strip()).split()
+        for line in synsety:
+            tab = (line.strip()).split()
             syns_text[int(tab[0])] = tab[1:]
         print("wczytano synsety slownie")
-    return gotowe, rest, hiper, hipo, syns_text
+    return mapped, remaining, hiper, hipo, syns_text
 
 
-def two(constr, mode):  # druga i dalsze iteracje
-    drudzy = open(conf.results('drudzy.txt'), 'w', encoding='utf-8')
-    bezzmian = open(conf.results('bezzmian.txt'), 'w', encoding='utf-8')
+# TODO: Allow selecting which ones to evaluate
+def _select_eval(rest):
+    """Select random elements for manual evaluation."""
+    syn_ids = list(rest.keys())
+    selected = set()
+    while len(selected) < 5000:
+        idx = random.randrange(len(rest))
+        selected.add(syn_ids[idx])
+    logger.info('Selected {} synsets to test manually\n'.format(len(selected)))
+    return selected
 
-    gotowe, rest, hiper, hipo, syns_text = _load_two()
 
-    # losujemy numery powiazan do recznej weryfikacji
-    if mode == 'i':  # testowanie reczne
-        spr = []
-        for i in rest.items():
-            spr.append(int(i[0]))
-        maks = max(spr)
-        do_spr = []  # losowe powiazania do recznego sprawdzenia
-        while len(do_spr) < 5000:
-            x = random.randrange(maks)
-            if (x in spr) and (x not in do_spr):
-                do_spr.append(random.randrange(maks))
-        print("do sprawdzenia recznie: ", len(do_spr), " powiazan.\n")
+def _count_hiper(current_syn, hipo):
+    """Count hipernymy for the synset."""
+    change = 1
+    tab1 = [current_syn]
+    total = []
+    while change:
+        rob = []
+        change = 0
+        for i in tab1:
+            if int(i) in hipo:
+                change = 1
+                for j in hipo[int(i)]:
+                    rob.append(j)
+                    total.append(j)
+        tab1 = rob[:]
+    hiperonimy_pl = total[:]
+    ojciec = 0
+    if hiperonimy_pl != []:
+        ojciec = hiperonimy_pl[0]
+    return ojciec, hiperonimy_pl
 
+
+def _count_hipo(current_syn, hiper):
+    """Count hiponymy for the synset."""
+    change = 1
+    tab1 = [current_syn]
+    tab2 = []
+    rob = []
+    total = []
+    children = []
+    ss = 0
+    while change:
+        change = 0
+        for i in tab1:
+            if int(i) in hiper:
+                change = 1
+                for j in hiper[int(i)]:
+                    rob.append(j)
+                    total.append(j)
+        tab2.append(rob)  # we add hiponymy in layers
+        tab1 = rob[:]
+        rob = []
+        if ss == 0:  # direct children are found in the first iteration
+            children = total[:]
+            ss = 1
+    tab2.pop()
+    hiponymy_pl_2 = tab2[:]
+    hiponymy_pl = total[:]  # children are already in children, this is others.
+    return hiponymy_pl, hiponymy_pl_2, children
+
+
+def two(constr, mode):
+    """Relaxation labeling iterations"""
+    step2 = open(conf.results('step2.txt'), 'w', encoding='utf-8')
+    no_changes = open(conf.results('no_changes.txt'), 'w', encoding='utf-8')
+
+    mapped, remaining, hiper, hipo, syns_text = _load_two()
+
+    if mode == 'i':
+        to_eval = _select_eval(remaining)
+
+    # This kind of info should be inside a class!
     info = ''
-    nr_linii = 0
-    ktory = 0
-    propozycje = 0  # wskazane przez algorytm
-    wybrane = 0  # wskazania algorytmu zaakceptowane przez uzytkownika
-    zrobione = 0  # wskazania algorytmu przy przebiegu niekontrolowanym przez uzytkownika
+    line_nr = 0
+    which_one = 0
+    suggestions = 0  # algorithm suggestions
+    selected = 0  # algorithm suggestions accepted by the user
+    mapped_count = 0  # algorithm selected without user interaction
 
-    waga_hiperonim = 0.93
-    waga_hiponim = 1.0
+    weight_hiperonim = 0.93
+    weight_hiponim = 1.0
 
     tic = time.clock()  # start iteracji
-    for i in rest.items():
-        polski = int(i[0])
-        kandydaci = i[1]
-        kandydatow = len(kandydaci)
-        srednia = 1. / kandydatow  # poczatkowa wartosc wagi dla kazdego powiazania
-        wagi = (np.ones(kandydatow)) * srednia
-        # wagi2 = wagi[:]
+    for current in remaining.items():
+        current_syn = int(current[0])
+        candidates = current[1]
+        candidates_len = len(candidates)
+        average_weight = 1. / candidates_len  # initial weight for each mapping
+        weights = (np.ones(candidates_len)) * average_weight
 
-        # print "\n--- Badany synset: ", polski, ": ", syns_text[polski], "\n"
-
-        # zliczanie hiperonimow
-        # Seperate this
-        zmiana = 1
-        tab1 = [polski]
-        rob = []
-        suma = []
-        while zmiana:
-            zmiana = 0
-            for i in tab1:
-                if int(i) in hipo:
-                    zmiana = 1
-                    for j in hipo[int(i)]:
-                        rob.append(j)
-                        suma.append(j)
-            tab1 = rob[:]
-            rob = []
-        hiperonimy_pl = suma[:]
-        ojciec = 0
-        if hiperonimy_pl != []:
-            ojciec = hiperonimy_pl[0]
-
-        # zliczanie hiponimow
-        # Seperate this
-        zmiana = 1
-        tab1 = [polski]
-        tab2 = []
-        rob = []
-        suma = []
-        synowie = []
-        ss = 0
-        while zmiana:
-            zmiana = 0
-            for i in tab1:
-                if int(i) in hiper:
-                    zmiana = 1
-                    for j in hiper[int(i)]:
-                        rob.append(j)
-                        suma.append(j)
-            tab2.append(rob)  # dolaczamy hiponimy warstwami
-            tab1 = rob[:]
-            rob = []
-            if ss == 0:  # bezposrednie hiperonimy znajdujemy w pierwszej iteracji
-                synowie = suma[:]
-                ss = 1
-        tab2.pop()
-
-        hiponimy_pl_2 = tab2[:]
-        hiponimy_pl = suma[:]  # synowie (bezposrednie hiponimy) są juz w tablicy synowie
+        ojciec, hipernymy_pl = _count_hiper(current_syn, hipo)
+        hiponymy_pl, hiponymy_pl_2, children = _count_hipo(current_syn, hiper)
 
         # przegladamy potencjalne dopasowania - elementy tablicy kandydaci
-        for indeks in range(kandydatow):
+        for idx in range(candidates_len):
             # print "\n", indeks+1, " ", kandydaci[indeks], ": ",
             # pwn.synset(str(kandydaci[indeks])).lemma_names, "\n"
-            kandydat = kandydaci[indeks]
+            kandydat = candidates[idx]
 
             sons = [str(i)[8:len(str(i)) - 2] for i in
                     pwn.synset(kandydat).hyponyms()]  # synowie angielskiego kandydata
@@ -427,323 +425,329 @@ def two(constr, mode):  # druga i dalsze iteracje
             # "\nhiponimy: ", hiponimy_pl
             # SEPERATE EACH ONE INTO SEPERATE FUNCTION AND ADD TESTS
             if constr == 'iie' or constr == 'ii':  # ojciec i ojciec
-                if ojciec in gotowe:
-                    if gotowe[ojciec] == father:
+                if ojciec in mapped:
+                    if mapped[ojciec] == father:
                         # najprostszy dzialajacy support
-                        wagi[indeks] += waga_hiperonim * srednia
-                        for ii in range(kandydatow):
-                            if ii != indeks:
+                        weights[idx] += weight_hiperonim * average_weight
+                        for ii in range(candidates_len):
+                            if ii != idx:
                                 # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                wagi[ii] -= (waga_hiperonim * srednia) / (kandydatow - 1.)
+                                weights[ii] -= (weight_hiperonim * average_weight) / (
+                                    candidates_len - 1.)
 
             if constr == 'iio' or constr == 'ii':  # syn i syn
-                for syn in synowie:
-                    if syn in gotowe:
-                        if gotowe[syn] in sons:
+                for syn in children:
+                    if syn in mapped:
+                        if mapped[syn] in sons:
                             # najprostszy dzialajacy support
-                            wagi[indeks] += waga_hiponim * srednia
-                            for ii in range(kandydatow):
-                                if ii != indeks:
+                            weights[idx] += weight_hiponim * average_weight
+                            for ii in range(candidates_len):
+                                if ii != idx:
                                     # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                    wagi[ii] -= (waga_hiponim * srednia) / (kandydatow - 1.)
+                                    weights[ii] -= (weight_hiponim * average_weight) / (
+                                        candidates_len - 1.)
 
             if constr == 'iib' or constr == 'ii':  # ojcowie i synowie
                 czy = 0
-                if ojciec in gotowe:
-                    if gotowe[ojciec] == father:
+                if ojciec in mapped:
+                    if mapped[ojciec] == father:
                         czy = 1
                 if czy:
-                    for syn in synowie:
-                        if syn in gotowe:
-                            if gotowe[syn] in sons:
+                    for syn in children:
+                        if syn in mapped:
+                            if mapped[syn] in sons:
                                 # 10 > 6 = srednia liczba kandydatow (patrz artykul)
-                                wagi[indeks] += 10. / (kandydatow * kandydatow)
-                                for ii in range(kandydatow):
-                                    if ii != indeks:
+                                weights[idx] += 10. / (candidates_len * candidates_len)
+                                for ii in range(candidates_len):
+                                    if ii != idx:
                                         # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                        wagi[ii] -= (10. / (kandydatow * kandydatow)) / (
-                                            kandydatow - 1.)
+                                        weights[ii] -= (
+                                                       10. / (candidates_len * candidates_len)) / (
+                                                           candidates_len - 1.)
 
             if constr == 'aie' or constr == 'ai':  # przodek i ojciec - POPRAWKA
-                for przodek in hiperonimy_pl:
-                    if przodek in gotowe:
-                        if gotowe[przodek] == father:
+                for przodek in hipernymy_pl:
+                    if przodek in mapped:
+                        if mapped[przodek] == father:
                             # print "jest polaczenie przodka z rodzicem"
-                            plus = waga_hiperonim * srednia / (2 ** (hiperonimy_pl.index(
+                            plus = weight_hiperonim * average_weight / (2 ** (hipernymy_pl.index(
                                 przodek)))  # czynnik spadku 2**(suma odleglosci w gore)
                             # print "przodkowie ", pol, " i ", gotowe[pol], " sa na glebokosci ",
                             # hiperonimy_pl.index(pol), " w polskim ", hiperonimy_pl, " i ",
                             # hiperonimy_en.index(gotowe[pol]), " w angielskim", hiperonimy_en
                             # print "zmiana wagi: ", plus
                             # xxx=raw_input("Nacisnij cos")
-                            wagi[indeks] += plus
-                            for ii in range(kandydatow):
-                                if ii != indeks:
+                            weights[idx] += plus
+                            for ii in range(candidates_len):
+                                if ii != idx:
                                     # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                    wagi[ii] -= plus / (kandydatow - 1.)
+                                    weights[ii] -= plus / (candidates_len - 1.)
                                     # print "wagi: ", wagi, " suma ", sum(wagi)
 
             if constr == 'aio' or constr == 'ai':  # potomek i syn - POPRAWKA
-                for potomek in hiponimy_pl:
-                    if potomek in gotowe:
-                        if gotowe[potomek] in sons:
+                for potomek in hiponymy_pl:
+                    if potomek in mapped:
+                        if mapped[potomek] in sons:
                             # print "jest polaczenie potomka z synem"
                             # czynnik spadku 2**(suma odleglosci w dol)
-                            plus = waga_hiponim * srednia / (2 ** (
-                                [potomek in p for p in hiponimy_pl_2].index(True)))
+                            plus = weight_hiponim * average_weight / (2 ** (
+                                [potomek in p for p in hiponymy_pl_2].index(True)))
                             # print "potomkowie ", pol, " i ", gotowe[pol], " sa na glebokosci
                             # ", [pol in p for p in hiponimy_pl_2].index(True), " w polskim ",
                             # hiponimy_pl_2, " i ", [gotowe[pol] in q for q in hiponimy_en_2].
                             # index(True), " w angielskim", hiponimy_en_2
                             # print "zmiana wagi: ", plus
                             # xxx=raw_input("Nacisnij cos")
-                            wagi[indeks] += plus
-                            for ii in range(kandydatow):
-                                if ii != indeks:
+                            weights[idx] += plus
+                            for ii in range(candidates_len):
+                                if ii != idx:
                                     # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                    wagi[ii] -= plus / (kandydatow - 1.)
+                                    weights[ii] -= plus / (candidates_len - 1.)
 
             if constr == 'aib' or constr == 'ai':  # przodkowie/potomkowie i ojciec/syn - POPRAWKA
                 czy = 0
-                for przodek in hiperonimy_pl:
-                    if przodek in gotowe:
-                        if gotowe[przodek] == father:
+                for przodek in hipernymy_pl:
+                    if przodek in mapped:
+                        if mapped[przodek] == father:
                             czy = 1
-                            odl1 = hiperonimy_pl.index(przodek)
+                            odl1 = hipernymy_pl.index(przodek)
                 if czy:
-                    for potomek in hiponimy_pl:
-                        if potomek in gotowe:
-                            if gotowe[potomek] in sons:
+                    for potomek in hiponymy_pl:
+                        if potomek in mapped:
+                            if mapped[potomek] in sons:
                                 # print "jest polaczenie przodka z ojcem i potomka z synem"
-                                odl2 = [potomek in p for p in hiponimy_pl_2].index(True)
+                                odl2 = [potomek in p for p in hiponymy_pl_2].index(True)
                                 # print "potomkowie ", pol, " i ", gotowe[pol], " sa na glebokosci
                                 # ", [pol in p for p in hiponimy_pl_2].index(True), " w polskim
                                 # hiponimy_pl_2, " i ", [gotowe[pol] in q for q in hiponimy_en_2]
                                 # .index(True), " w angielskim", hiponimy_en_2
                                 # print "zmiana wagi: ", plus
                                 # xxx=raw_input("Nacisnij cos")
-                                plus = (15. / (kandydatow * kandydatow)) / (2 ** max(odl1, odl2))
-                                wagi[indeks] += plus
-                                for ii in range(kandydatow):
-                                    if ii != indeks:
+                                plus = (15. / (candidates_len * candidates_len)) / \
+                                       (2 ** max(odl1, odl2))
+                                weights[idx] += plus
+                                for ii in range(candidates_len):
+                                    if ii != idx:
                                         # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                        wagi[ii] -= plus / (kandydatow - 1.)
+                                        weights[ii] -= plus / (candidates_len - 1.)
 
             if constr == 'iae' or constr == 'ia':  # ojciec i przodek
-                if ojciec in gotowe:
-                    if gotowe[ojciec] in hiperonimy_en:
+                if ojciec in mapped:
+                    if mapped[ojciec] in hiperonimy_en:
                         # print "jest polaczenie ojca z przodkiem"
-                        plus = waga_hiperonim * srednia / (2 ** (hiperonimy_en.index(
-                            gotowe[ojciec])))  # czynnik spadku 2**(suma odleglosci w gore)
+                        plus = weight_hiperonim * average_weight / (2 ** (hiperonimy_en.index(
+                            mapped[ojciec])))  # czynnik spadku 2**(suma odleglosci w gore)
                         # print "przodkowie ", pol, " i ", gotowe[pol], " sa na glebokosci ",
                         # hiperonimy_pl.index(pol), " w polskim ", hiperonimy_pl, " i ",
                         # hiperonimy_en.index(gotowe[pol]), " w angielskim", hiperonimy_en
                         # print "zmiana wagi: ", plus
                         # xxx=raw_input("Nacisnij cos")
-                        wagi[indeks] += plus
-                        for ii in range(kandydatow):
-                            if ii != indeks:
+                        weights[idx] += plus
+                        for ii in range(candidates_len):
+                            if ii != idx:
                                 # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                wagi[ii] -= plus / (kandydatow - 1.)
+                                weights[ii] -= plus / (candidates_len - 1.)
                                 # print "wagi: ", wagi, " suma ", sum(wagi)
 
             if constr == 'iao' or constr == 'ia':  # syn i potomek
-                for syn in synowie:
-                    if syn in gotowe:
-                        if gotowe[syn] in hiponimy_en:
+                for syn in children:
+                    if syn in mapped:
+                        if mapped[syn] in hiponimy_en:
                             # print "jest polaczenie syna z potomkiem"
                             # czynnik spadku 2**(suma odleglosci w dol)
-                            plus = waga_hiponim * srednia / (2 ** (
-                                [gotowe[syn] in q for q in hiponimy_en_2].index(True)))
+                            plus = weight_hiponim * average_weight / (2 ** (
+                                [mapped[syn] in q for q in hiponimy_en_2].index(True)))
                             # print "potomkowie ", pol, " i ", gotowe[pol], " sa na glebokosci
                             # ", [pol in p for p in hiponimy_pl_2].index(True), " w polskim ",
                             # hiponimy_pl_2, " i ", [gotowe[pol] in q for q in
                             # hiponimy_en_2].index(True), " w angielskim", hiponimy_en_2
                             # print "zmiana wagi: ", plus
                             # xxx=raw_input("Nacisnij cos")
-                            wagi[indeks] += plus
-                            for ii in range(kandydatow):
-                                if ii != indeks:
+                            weights[idx] += plus
+                            for ii in range(candidates_len):
+                                if ii != idx:
                                     # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                    wagi[ii] -= plus / (kandydatow - 1.)
+                                    weights[ii] -= plus / (candidates_len - 1.)
 
             if constr == 'iab' or constr == 'ia':  # ojciec i przodek + syn i potomek
                 czy = 0
-                if ojciec in gotowe:
-                    if gotowe[ojciec] in hiperonimy_en:
+                if ojciec in mapped:
+                    if mapped[ojciec] in hiperonimy_en:
                         czy = 1
-                        plus = waga_hiperonim / (2 ** (hiperonimy_en.index(gotowe[ojciec])))
+                        plus = weight_hiperonim / (2 ** (hiperonimy_en.index(mapped[ojciec])))
                 if czy:
-                    for syn in synowie:
-                        if syn in gotowe:
-                            if gotowe[syn] in hiponimy_en:
+                    for syn in children:
+                        if syn in mapped:
+                            if mapped[syn] in hiponimy_en:
                                 # print "jest polaczenie ojca z przodkiem i syna z potomkiem"
-                                plus = 2 * plus + waga_hiponim / (
-                                    2 ** ([gotowe[syn] in q for q in hiponimy_en_2].index(True)))
-                                wagi[indeks] += plus
-                                for ii in range(kandydatow):
-                                    if ii != indeks:
+                                plus = 2 * plus + weight_hiponim / (
+                                    2 ** ([mapped[syn] in q for q in hiponimy_en_2].index(True)))
+                                weights[idx] += plus
+                                for ii in range(candidates_len):
+                                    if ii != idx:
                                         # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                        wagi[ii] -= plus / (kandydatow - 1.)
+                                        weights[ii] -= plus / (candidates_len - 1.)
 
             if constr == 'aae' or constr == 'aa':  # przodek i przodek
-                for pol in hiperonimy_pl:  # zaczynamy sprawdzanie "support" ze sciezek hiperonimow
-                    if pol in gotowe:  # jesli nasz hiperonim jest juz z czyms polaczony
-                        if gotowe[pol] in hiperonimy_en:
+                for pol in hipernymy_pl:  # zaczynamy sprawdzanie "support" ze sciezek hiperonimow
+                    if pol in mapped:  # jesli nasz hiperonim jest juz z czyms polaczony
+                        if mapped[pol] in hiperonimy_en:
                             # print " jest polaczenie przodkow"#wagi[indeks] = wagi[indeks]+1.0
                             # czynnik spadku 2**(suma odleglosci w gore)
-                            plus = waga_hiperonim * srednia / (2 ** max(hiperonimy_pl.index(pol),
-                                                                        hiperonimy_en.index(gotowe[
-                                                                                        pol])))
+                            plus = weight_hiperonim * average_weight / (
+                                2 ** max(hipernymy_pl.index(pol),
+                                         hiperonimy_en.index(mapped[
+                                                             pol])))
                             # print "przodkowie ", pol, " i ", gotowe[pol], " sa na glebokosci
                             # ", hiperonimy_pl.index(pol), " w polskim ", hiperonimy_pl, " i ",
                             # hiperonimy_en.index(gotowe[pol]), " w angielskim", hiperonimy_en
                             # print "zmiana wagi: ", plus
                             # xxx=raw_input("Nacisnij cos")
-                            wagi[indeks] += plus
-                            for ii in range(kandydatow):
-                                if ii != indeks:
+                            weights[idx] += plus
+                            for ii in range(candidates_len):
+                                if ii != idx:
                                     # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                    wagi[ii] -= plus / (kandydatow - 1.)
+                                    weights[ii] -= plus / (candidates_len - 1.)
                                     # print "wagi: ", wagi, " suma ", sum(wagi)
 
             if constr == 'aao' or constr == 'aa':  # potomek i potomek
-                for pol in hiponimy_pl:  # zaczynamy sprawdzanie "support" z hiponimow
-                    if pol in gotowe:  # jesli nasz hiponim jest juz z czyms polaczony
+                for pol in hiponymy_pl:  # zaczynamy sprawdzanie "support" z hiponimow
+                    if pol in mapped:  # jesli nasz hiponim jest juz z czyms polaczony
                         # sprawdzamy czy jest polaczony z angielskim hiponimem
-                        if gotowe[pol] in hiponimy_en:
+                        if mapped[pol] in hiponimy_en:
                             # print "jest polaczenie potomkow"#wagi[indeks] = wagi[indeks]+2.0
                             # hiponimia silniejsza niz hiperonimia
                             # czynnik spadku 2**(suma odleglosci w dol)
-                            plus = waga_hiponim * srednia / (
-                                2 ** max([pol in p for p in hiponimy_pl_2].index(True),
-                                         [gotowe[pol] in q for q in hiponimy_en_2].index(True)))
+                            plus = weight_hiponim * average_weight / (
+                                2 ** max([pol in p for p in hiponymy_pl_2].index(True),
+                                         [mapped[pol] in q for q in hiponimy_en_2].index(True)))
                             # print "potomkowie ", pol, " i ", gotowe[pol], " sa na glebokosci
                             # ", [pol in p for p in hiponimy_pl_2].index(True), " w polskim "
                             # , hiponimy_pl_2, " i ", [gotowe[pol] in q for q in
                             # hiponimy_en_2].index(True), " w angielskim", hiponimy_en_2
                             # print "zmiana wagi: ", plus
                             # xxx=raw_input("Nacisnij cos")
-                            wagi[indeks] += plus
-                            for ii in range(kandydatow):
-                                if ii != indeks:
+                            weights[idx] += plus
+                            for ii in range(candidates_len):
+                                if ii != idx:
                                     # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                    wagi[ii] -= plus / (kandydatow - 1.)
+                                    weights[ii] -= plus / (candidates_len - 1.)
 
             if constr == 'aab' or constr == 'aa':  # przodkowie i potomkowie
                 ok = 0
-                for pol in hiperonimy_pl:  # zaczynamy sprawdzanie "support" ze sciezek hiperonimow
-                    if pol in gotowe:  # jesli nasz hiperonim jest juz z czyms polaczony
-                        if gotowe[pol] in hiperonimy_en:
+                for pol in hipernymy_pl:  # zaczynamy sprawdzanie "support" ze sciezek hiperonimow
+                    if pol in mapped:  # jesli nasz hiperonim jest juz z czyms polaczony
+                        if mapped[pol] in hiperonimy_en:
                             ok = 1
-                            ind1 = hiperonimy_pl.index(pol)  # odleglosc powiazanego hiperonimu
-                            ind2 = hiperonimy_en.index(gotowe[pol])
+                            ind1 = hipernymy_pl.index(pol)  # odleglosc powiazanego hiperonimu
+                            ind2 = hiperonimy_en.index(mapped[pol])
                 if ok:
-                    for pol in hiponimy_pl:  # zaczynamy sprawdzanie "support" z hiponimow
-                        if pol in gotowe:  # jesli nasz hiponim jest juz z czyms polaczony
+                    for pol in hiponymy_pl:  # zaczynamy sprawdzanie "support" z hiponimow
+                        if pol in mapped:  # jesli nasz hiponim jest juz z czyms polaczony
                             # sprawdzamy czy jest polaczony z angielskim hiponimem
-                            if gotowe[pol] in hiponimy_en:
+                            if mapped[pol] in hiponimy_en:
                                 # print "jest polaczenie przodkow i potomkow"
                                 # #wagi[indeks] = wagi[indeks]+2.0 # hiponimia silniejsza niz
                                 # hiperonimia
                                 plus = (2 ** (
-                                    [pol in p for p in hiponimy_pl_2].index(True) +
-                                    [gotowe[pol] in q for q in hiponimy_en_2]
+                                    [pol in p for p in hiponymy_pl_2].index(True) +
+                                    [mapped[pol] in q for q in hiponimy_en_2]
                                     .index(True) + ind1 + ind2))
                                 # 10 > 6 = srednia liczba kandydatow (patrz artykul)
-                                wagi[indeks] += (20. / (
-                                    kandydatow * kandydatow)) / plus
-                                for ii in range(kandydatow):
-                                    if ii != indeks:
-                                        wagi[ii] -= ((20. / (
+                                weights[idx] += (20. / (
+                                    candidates_len * candidates_len)) / plus
+                                for ii in range(candidates_len):
+                                    if ii != idx:
+                                        weights[ii] -= ((20. / (
                                             # proporcjonalnie zmiejszamy wagi innych kandydatow
-                                            kandydatow * kandydatow)) / plus) / (
-                                                              kandydatow - 1.)
+                                            candidates_len * candidates_len)) / plus) / (
+                                                           candidates_len - 1.)
                                         # print "zmiana wagi: ", plus, " wagi: ", wagi
                                         # xxx=raw_input("Nacisnij cos")
 
-        if (mode == 't') or (mode == 'i' and polski not in do_spr):
+        if (mode == 't') or (mode == 'i' and current_syn not in to_eval):
             # jesli wagi sie nie zmienily
-            if np.all(wagi == (np.ones(kandydatow)) * srednia):
-                info = str(polski)
-                for k in kandydaci:
+            if np.all(weights == (np.ones(candidates_len)) * average_weight):
+                info = str(current_syn)
+                for k in candidates:
                     info = info + " " + str(k)
                 info = info + "\n"
-                bezzmian.write(
+                no_changes.write(
                     info)  # print "\nAlgorytm obecnie nie jest w stanie zasugerowac przypisania."
             else:
                 try:
-                    maxind = np.nonzero([m == max(wagi) for m in wagi])[
+                    maxind = np.nonzero([m == max(weights) for m in weights])[
                         0]  # znajdujemy numer(y) kandydata(ów) o najwyzszej(ych) wadze(gach)
                 except IndexError:
                     maxind = 0
-                drudzy.write(str(polski) + " " + str(kandydaci[maxind[0]]) + "\n")
-                zrobione = zrobione + 1
+                step2.write(str(current_syn) + " " + str(candidates[maxind[0]]) + "\n")
+                mapped_count = mapped_count + 1
                 # print str(polski), " -> ", kandydaci[maxind[0]]
 
-        # drudzy.write(str(polski)+" "+str(kandydaci)+"\n")	# robimy nowy plik z nieprzetworzonymi
-        # synsetami, przetworzone poszly do "pierwsi"
-        if mode == 'i' and polski in do_spr:
-            propozycje = propozycje + 1
+        # step2.write(str(polski)+" "+str(kandydaci)+"\n")	# robimy nowy plik z nieprzetworzonymi
+        # synsetami, przetworzone poszly do "mapped"
+        if mode == 'i' and current_syn in to_eval:
+            suggestions = suggestions + 1
             try:
-                maxind = np.nonzero([m == max(wagi) for m in wagi])[
+                maxind = np.nonzero([m == max(weights) for m in weights])[
                     0]  # znajdujemy numer(y) kandydata(ów) o najwyzszej(ych) wadze(gach)
             except IndexError:
                 maxind = 0
             try:
-                hipero_pl = [syns_text[s] for s in hiperonimy_pl]
+                hipero_pl = [syns_text[s] for s in hipernymy_pl]
             except KeyError:  # bo niektore synsety sa puste
                 hipero_pl = []
             print("hiperonimy polskie: ", hipero_pl[0:5])
             try:
-                hipo_pl = [syns_text[s] for s in hiponimy_pl]
+                hipo_pl = [syns_text[s] for s in hiponymy_pl]
             except KeyError:
                 hipo_pl = []
             print("hiponimy polskie: ", hipo_pl[0:5], "\n")
 
-            print("kandydatow: ", kandydatow)
-            print("\n--- Kandydaci dla ", polski, " ---")
-            for indeks in range(kandydatow):
+            print("kandydatow: ", candidates_len)
+            print("\n--- Kandydaci dla ", current_syn, " ---")
+            for idx in range(candidates_len):
                 # przegladamy potencjalne dopasowania - elementy tablicy kandydaci
-                print("\n", indeks + 1, " ", kandydaci[indeks], ": ",
-                      pwn.synset(str(kandydaci[indeks])).lemma_names)
+                print("\n", idx + 1, " ", candidates[idx], ": ",
+                      pwn.synset(str(candidates[idx])).lemma_names)
                 print("\nhiperonimy: ", [str(i)[8:len(str(i)) - 2] for i in
-                                         pwn.synset(kandydaci[indeks]).hypernym_paths()[0]][0:5])
+                                         pwn.synset(candidates[idx]).hypernym_paths()[0]][0:5])
                 print("\nhiponimy: ",
-                      [str(i)[8:len(str(i)) - 2] for i in pwn.synset(kandydaci[indeks]).hyponyms()]
+                      [str(i)[8:len(str(i)) - 2] for i in pwn.synset(candidates[idx]).hyponyms()]
                       [0:5], "\n")
             print("\nAlgorytm wskazal:")
             if type(maxind) != list:
                 maxind = [maxind]
             for n in range(len(maxind[0])):
-                print(maxind, maxind[0], maxind[0][n] + 1, " ", kandydaci[int(maxind[0][n])])
+                print(maxind, maxind[0], maxind[0][n] + 1, " ", candidates[int(maxind[0][n])])
             try:
                 odp = input("\nWybierz numer kandydata do przypisania (0-rezygnacja): ")
                 if odp != '0':
-                    nr_linii = nr_linii + 1
-                    ktory = ktory + 1
-                    drudzy.write(str(nr_linii) + " " + str(polski) + " " + str(
-                        kandydaci[int(odp) - 1]) + "\n")
-                    print("\nodp: ", odp, " Przypisano ", kandydaci[int(odp) - 1], " do ", polski,
+                    line_nr = line_nr + 1
+                    which_one = which_one + 1
+                    step2.write(str(line_nr) + " " + str(current_syn) + " " + str(
+                        candidates[int(odp) - 1]) + "\n")
+                    print("\nodp: ", odp, " Przypisano ", candidates[int(odp) - 1], " do ",
+                          current_syn,
                           ".\n")
                     if int(odp) - 1 in maxind[0]:
-                        wybrane = wybrane + 1
+                        selected = selected + 1
                 odp = input("\nWcisnij dowolny klawisz zeby kontynuowac.")
             except ValueError:
                 print("Zla wartosc! Ide dalej.")
-            if ktory % 5 == 1:
+            if which_one % 5 == 1:
                 print("------ podsumowanie czesciowe -----")
-                print("wskazane przez algorytm: ", propozycje)
-                print("zaakceptowane przez uzytkownika: ", wybrane)
+                print("wskazane przez algorytm: ", suggestions)
+                print("zaakceptowane przez uzytkownika: ", selected)
                 odp = input("\nWcisnij dowolny klawisz zeby kontynuowac.")
     toc = time.clock()
     print("czas: ", toc - tic)
-    print("wskazane przez algorytm: ", propozycje)
-    print("zaakceptowane przez uzytkownika: ", wybrane)
-    print("zapisane samodzielnie przez algorytm: ", zrobione)
-    bezzmian.close()
-    drudzy.close()
-    return np.array([toc - tic, propozycje, wybrane, zrobione])
+    print("wskazane przez algorytm: ", suggestions)
+    print("zaakceptowane przez uzytkownika: ", selected)
+    print("zapisane samodzielnie przez algorytm: ", mapped_count)
+    no_changes.close()
+    step2.close()
+    return np.array([toc - tic, suggestions, selected, mapped_count])
 
 
 def main(n):
@@ -758,8 +762,9 @@ def main(n):
         c = 'ii'
         # c = raw_input("Podaj typ ograniczen: ")
         if c not in [
-                'ii', 'ia', 'ai', 'aa', 'iie', 'iio', 'iib', 'iie+iio', 'iio+iie', 'aie'
-                'aio', 'aib', 'aie+aio', 'aio+aie', 'iae', 'iao', 'iab', 'iae+iao', 'iao+iae',
+            'ii', 'ia', 'ai', 'aa', 'iie', 'iio', 'iib', 'iie+iio', 'iio+iie', 'aie'
+                                                                               'aio', 'aib',
+            'aie+aio', 'aio+aie', 'iae', 'iao', 'iab', 'iae+iao', 'iao+iae',
                 'aae', 'aao', 'aab', 'aae+aao', 'aao+aae']:
             print("Zly typ ograniczen!")
             return

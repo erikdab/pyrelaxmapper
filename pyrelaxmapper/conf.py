@@ -8,7 +8,7 @@ from configparser import ConfigParser
 
 import click
 
-from pyrelaxmapper import APPLICATION
+APPLICATION = 'pyrelaxmapper'
 
 logger = logging.getLogger()
 
@@ -31,8 +31,8 @@ def results(filename):
     return os.path.abspath(os.path.join(output, filename))
 
 
-def search_in_paths(filename, paths=search_paths()):
-    """Find all files with pattern in paths.
+def last_in_paths(filename, paths=search_paths()):
+    """Find last file with pattern in paths.
 
     Parameters
     ----------
@@ -43,8 +43,27 @@ def search_in_paths(filename, paths=search_paths()):
 
     Returns
     -------
-    file_paths : list
-        List of files found, or empty if none exist
+    file_paths : str
+        Last file found, or empty if none exist
+    """
+    file_paths = find_in_paths(filename, paths)
+    return file_paths[-1] if file_paths else file_paths
+
+
+def find_in_paths(filename, paths=search_paths()):
+    """Find last file with pattern in paths.
+
+    Parameters
+    ----------
+    paths : list
+        List of paths to search in
+    filename : str
+        Filename to search for
+
+    Returns
+    -------
+    list
+        Last file found, or empty if none exist
     """
     file_paths = []
     for path in paths:
@@ -67,7 +86,7 @@ def load_conf(paths=search_paths()):
     ConfigParser
         Single config parser with merged settings.
     """
-    file_paths = search_in_paths('conf.ini')
+    file_paths = last_in_paths('conf.ini')
     parser = ConfigParser()
     parser.read(file_paths)
     return parser
