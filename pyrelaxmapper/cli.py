@@ -12,10 +12,11 @@ def main():
     pass
 
 
-# TODO: Document possible arguments
-@main.group()
-@click.argument('actions', nargs=-1)
-def make(actions):
+# TODO: allow make to show help if no action is passed.
+@main.command()
+@click.argument('actions', nargs=-1, required=False)
+@click.option('--clean/--no-clean', default=True, help='Clean old mapping output.')
+def make(actions, clean):
     """Make target ACTIONS in correct order. Chainable.
 
     \b
@@ -23,13 +24,19 @@ def make(actions):
       all      Make all actions.
       dicts    Make translation dicts.
       extract  Extract plWordNet data from DB.
-      one      Run step one of algorithm."""
+      map      Perform the mapping actions.
+      mono     Map monosemous words (without RL).
+      poly     Map polysemous words (with RL)."""
     if any(action in ['dicts', 'all'] for action in actions):
         commands.make_dicts()
     if any(action in ['extract', 'all'] for action in actions):
         commands.make_extract()
-    if any(action in ['one', 'all'] for action in actions):
-        commands.make_one()
+    if clean and any(action in ['mono', 'poly', 'all'] for action in actions):
+        commands.make_clean()
+    if any(action in ['map', 'mono', 'all'] for action in actions):
+        commands.make_mono()
+    if any(action in ['map', 'poly', 'all'] for action in actions):
+        commands.make_poly()
 
 
 @main.command()

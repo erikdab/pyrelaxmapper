@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
-import logging
+import logging.config
 
+from . import conf
+
+logging.config.fileConfig(conf.last_in_paths('logging.ini'))
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 __author__ = """Erik David Burnell"""
