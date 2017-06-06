@@ -57,12 +57,12 @@ def _load_synsets(node, file_ids, file_text, units, nouns_only):
 
 
 def _load_hiper_hipo(node, file_hiper, file_hipo):
-    """Load hipernymy and hiponymy."""
+    """Load hipernyms and hiponyms."""
     for i in node:
         # Make certain! Have functions to get the ids or if not, then
         #  have ONE place with constants
-        # 10 - hiponimia;
-        # 11 - hiperonimia;
+        # 10 - hiponyms;
+        # 11 - hipernyms;
         # 27 - meronimia,
         # 22 - holonimia?
         if list(i.items())[2][1] == '11':
@@ -89,10 +89,10 @@ def build(xml_file, nouns_only=True):
         print("Loaded synsets.")
 
     db_relations = db.findall('synsetrelations')
-    with open("data/synset_hiperonimia.txt", "w", encoding="utf-8") as file_hiper,\
-            open("data/synset_hiponimia.txt", "w", encoding="utf-8") as file_hipo:
+    with open("data/synset_hipernyms.txt", "w", encoding="utf-8") as file_hiper,\
+            open("data/synset_hiponyms.txt", "w", encoding="utf-8") as file_hipo:
         _load_hiper_hipo(db_relations, file_hiper, file_hipo)
-        print("Loaded hipernymy and hiponymy.")
+        print("Loaded hipernyms and hiponyms.")
 
 
 def build2():

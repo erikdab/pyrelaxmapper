@@ -4,7 +4,7 @@ import networkx as nx
 
 def proc():
     """O.O"""
-    in_file = open("synset_hiperonimia.txt", "r")
+    in_file = open("synset_hipernyms.txt", "r")
     g = nx.DiGraph()
     for line in in_file:
         l = line.split()

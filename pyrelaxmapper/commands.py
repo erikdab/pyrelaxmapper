@@ -107,5 +107,5 @@ def make_mono():
 def make_poly():
     """Create polysemous mappings between plWN and PWN."""
     click.secho('Running polysemous mapping.', fg='blue')
-    rl.test()
+    rl.rl_loop()
     click.secho('Done polysemous mapping.', fg='blue')

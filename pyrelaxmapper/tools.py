@@ -50,18 +50,18 @@ def pisz_synset(numer):
 
 
 def hipo(nr):
-    """Numer hiponimy."""
+    """Numer hiponym."""
     # nr = input("Podaj nr synsetu: ")
-    hiperonimia = open("synset_hiperonimia.txt", "r", encoding="utf-8")
+    hipernyms = open("synset_hipernyms.txt", "r", encoding="utf-8")
     hiper = dict()  # slownik potencjalnych przypisan
 
-    for linia in hiperonimia:
+    for linia in hipernyms:
         tab = (linia.strip()).split()
-        if int(tab[0]) in hiper:  # jesli juz byl jakis hiponim
+        if int(tab[0]) in hiper:  # jesli juz byl jakis hiponym
             hiper[int(tab[0])].append(int(tab[1]))
         else:
             hiper[int(tab[0])] = [int(tab[1])]
-            # print "wczytano hiperonimie"
+            # print "wczytano hipernymy"
             # for j in hiper.iteritems():
             # print j
             # time.sleep(1)
@@ -93,7 +93,7 @@ def hipo(nr):
             synowie = suma[:]
             ss = 1
     print()
-    "hiponimow: ", len(suma)
+    "hiponyms: ", len(suma)
     time.sleep(2)
     tab2.pop()
     print()
@@ -102,18 +102,17 @@ def hipo(nr):
     return suma
 
 
-def hipero(nr):
-    """Numer hiperonimy."""
-    hiponimia = open("synset_hiponimia.txt", "r", encoding="utf-8")
+def hipern(nr):
+    """Numer hipernyms."""
+    hiponyms = open("synset_hiponyms.txt", "r", encoding="utf-8")
     hipo = dict()  # slownik potencjalnych przypisan
 
-    for linia in hiponimia:
+    for linia in hiponyms:
         tab = (linia.strip()).split()
-        if int(tab[0]) in hipo:  # jesli juz byl jakis hiponim
+        if int(tab[0]) in hipo:  # jesli juz byl jakis hiponym
             hipo[int(tab[0])].append(int(tab[1]))
         else:
             hipo[int(tab[0])] = [int(tab[1])]
-            # print "wczytano hiponimie"
             # for j in hiper.iteritems():
             # print j
             # time.sleep(1)
@@ -139,7 +138,7 @@ def hipero(nr):
         tab1 = rob[:]
         rob = []
     print()
-    "hiperonimow: ", len(suma)
+    "hipernyms: ", len(suma)
     # print "tab2: ", tab2
     time.sleep(2)
 
@@ -173,12 +172,12 @@ def hipo_en(kandydat):
 
 
 def rekur(p, nr, lan, rel):
-    """rekurencyjne przeszukiwanie drzewa hipero- (relacja = 1) i hiponimii (relacja = 0)"""
+    """rekurencyjne przeszukiwanie drzewa hipern- (relacja = 1) i hiponym (relacja = 0)"""
     plik = open(str(p) + '.txt', 'r', encoding="utf-8")
     for linia in plik:
         linia = linia.strip()  # usuwamy niepotrzebne znaki
         tab = linia.split()  # wrzucamy zawartosc linii jako inty do tablicy
-        tab = [int(i) for i in tab]  # teraz tab = [hiperonim  hiponim]
+        tab = [int(i) for i in tab]  # teraz tab = [hipernym  hiponym]
         if tab[rel] == nr:
             lan.append(tab[1 - rel])
             # print "znalezione i dodane ",tab[1-rel]
@@ -188,7 +187,7 @@ def rekur(p, nr, lan, rel):
 
 
 def relacja(nazwa, nr, relacja):
-    """wyznaczanie ścieżki hiperonimii (relacja=1) lub drzewa hiponimii (relacja=0) elementu nr
+    """wyznaczanie ścieżki hipernymy (relacja=1) lub drzewa hiponym (relacja=0) elementu nr
     w pliku "nazwa.txt"""
     wynik = []
     rekur(str(nazwa), nr, wynik, relacja)
@@ -503,5 +502,5 @@ def to_database(par):
     return
 
 # próbka losowa - weryfikacja -> prosta metoda jako pkt odniesienia - losowosc? raczej nie
-# sprawdzic cala galaz hiperoniii nie za wysoko w drzewie i porownac, tylko wtedy co z synsetami
+# sprawdzic cala galaz hipernym nie za wysoko w drzewie i porownac, tylko wtedy co z synsetami
 # wysoko w hierarchii?

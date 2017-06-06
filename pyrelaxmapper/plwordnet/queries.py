@@ -90,13 +90,13 @@ def synsets(session, pos=None):
 
 
 def synset_relations(session, types=None):
-    """Query for hipernymy.
+    """Query for hipernyms.
 
     Parameters
     ----------
     session : orm.session.Session
     types : list
-        RelationType to select (default [10, 11], hiper/hiponymy)
+        RelationType to select (default [10, 11], hiper/hiponyms)
     """
     if types is None:
         types = [10, 11]
