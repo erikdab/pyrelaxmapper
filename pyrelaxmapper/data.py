@@ -61,16 +61,16 @@ def db_extract(session, nouns_only=True):
                      for synset in synsets)
         file_text.write('\n'.join(lu_lemmas))
 
-    with open(conf.results('synset_hiperonimia.txt'), "w", encoding="utf-8") as file_hiper, \
-            open(conf.results('synset_hiponimia.txt'), "w", encoding="utf-8") as file_hipo:
+    with open(conf.results('synset_hipernyms.txt'), "w", encoding="utf-8") as file_hiper, \
+            open(conf.results('synset_hiponyms.txt'), "w", encoding="utf-8") as file_hipo:
         hiper_count = plqueries.synset_relations(session, [10]).count()
         relations = plqueries.synset_relations(session).all()
-        hipernymy, hiponymy = relations[:hiper_count], relations[hiper_count:]
+        hipernyms, hiponyms = relations[:hiper_count], relations[hiper_count:]
 
-        hipernymy_out = ('{} {}'.format(relation.parent_id, relation.child_id)
-                         for relation in hipernymy)
-        file_hiper.write('\n'.join(hipernymy_out))
+        hipernyms_out = ('{} {}'.format(relation.parent_id, relation.child_id)
+                         for relation in hipernyms)
+        file_hiper.write('\n'.join(hipernyms_out))
 
-        hiponymy_out = ('{} {}'.format(relation.parent_id, relation.child_id)
-                        for relation in hiponymy)
-        file_hipo.write('\n'.join(hiponymy_out))
+        hiponyms_out = ('{} {}'.format(relation.parent_id, relation.child_id)
+                        for relation in hiponyms)
+        file_hipo.write('\n'.join(hiponyms_out))
