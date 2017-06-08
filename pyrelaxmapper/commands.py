@@ -4,7 +4,8 @@ import os
 
 import click
 
-from pyrelaxmapper import data, db, conf, rl
+from rlabel import main as rl
+from pyrelaxmapper import data, db, conf
 from pyrelaxmapper.plwordnet import queries as plquery, files as plfile
 
 
