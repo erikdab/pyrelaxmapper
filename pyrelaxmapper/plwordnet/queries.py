@@ -12,10 +12,24 @@ def version(session):
     return session.query(models.Parameter).filter_by(name='programversion').first().value
 
 
+def relationtypes(session, types=None):
+    """Query for hipernyms.
+
+    Parameters
+    ----------
+    session : orm.session.Session
+    types : list
+        RelationType to select (default [10, 11], hiper/hiponyms)
+    """
+    return (session.query(RelationType)
+            )
+
+
 def relationtypes_pwn_plwn(session):
     """Query plWN for PWN-plWN relation types."""
     return (session.query(RelationType.id_)
             .filter(RelationType.name.like('%plWN%'))
+            # Don't take potential, only take certain candidates
             .filter(~ RelationType.shortcut.in_(['po_pa', 'po_ap'])))
 
 
@@ -45,6 +59,8 @@ def pwn_mappings(session):
             .join(RelationType, SynsetRelation.rel_id == RelationType.id_)
             .filter(RelationType.id_.in_(rel_types))
             .filter(LexicalUnit.pos > 4)
+            # Before wasn't grouped!
+            .group_by(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
             .order_by(Synset.id_)
             )
 
@@ -57,6 +73,10 @@ def lunits(session, pos=None):
     session : orm.session.Session
     pos : list
         Parts of speech to select (default [2])
+
+    Returns
+    -------
+
     """
     if not pos:
         pos = [2]
@@ -86,6 +106,50 @@ def synsets(session, pos=None):
             .filter(LexicalUnit.pos.in_(pos))
             .order_by(Synset.id_)
             .group_by(Synset.id_)
+            )
+
+
+def synsets2(session, pos=None):
+    """Query for synsets, concatenated ids and lemmas of their LUs.
+
+    Parameters
+    ----------
+    session : orm.session.Session
+    pos : list
+        Parts of speech to select (default [2])
+    """
+    if not pos:
+        pos = [2]
+    return (session.query(Synset.id_,
+                          expression.label('lex_ids', func.group_concat(UnitSynset.lex_id)),
+                          expression.label('unitindexes', func.group_concat(UnitSynset.unitindex))
+                          )
+            .join(UnitSynset)
+            .join(LexicalUnit)
+            .filter(LexicalUnit.pos.in_(pos))
+            .order_by(Synset.id_)
+            .group_by(Synset.id_)
+            )
+
+
+def synset_relations2(session, type, pos=None):
+    """Query for hipernyms.
+
+    Parameters
+    ----------
+    session : orm.session.Session
+    types : list
+        RelationType to select (default [10, 11], hiper/hiponyms)
+    """
+    if not pos:
+        pos = [2]
+    return (session.query(SynsetRelation.parent_id, SynsetRelation.child_id)
+            .join(UnitSynset, SynsetRelation.parent_id == UnitSynset.syn_id)
+            .join(LexicalUnit)
+            .filter(SynsetRelation.rel_id == type)
+            .filter(LexicalUnit.pos.in_(pos))
+            .order_by(SynsetRelation.parent_id)
+            .group_by(SynsetRelation.parent_id, SynsetRelation.child_id)
             )
 
 

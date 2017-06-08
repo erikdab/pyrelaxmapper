@@ -8,6 +8,8 @@ from configparser import ConfigParser
 
 import click
 
+from pyrelaxmapper import db
+
 APPLICATION = 'pyrelaxmapper'
 
 logger = logging.getLogger()
@@ -29,6 +31,14 @@ def results(filename):
     if not os.path.exists(output):
         os.makedirs(output)
     return os.path.abspath(os.path.join(output, filename))
+
+
+def make_session(parser, db_name='db-default'):
+    """Make DB session."""
+    with open(os.path.expanduser(parser['path'][db_name])) as file:
+        settings = load_conf_db(file)
+    engine = db.create_engine(settings)
+    return db.session_start(engine)
 
 
 def last_in_paths(filename, paths=search_paths()):
