@@ -2,7 +2,7 @@
 """WordNet Base interface."""
 
 
-class WordNet:
+class RLWordNet:
     """WordNet Interface.
 
     Define which features it supports. Maybe specify WordNet config"""
@@ -32,6 +32,10 @@ class WordNet:
         pass
 
     def synsets_all(self):
+        pass
+
+    def mappings(self):
+        """Existing mappings"""
         pass
 
     def pos(self):
@@ -77,7 +81,10 @@ class Synsets:
         pass
 
 
-class Synset:
+class RLSynset:
+    def id_(self):
+        pass
+
     def lemmas(self):
         pass
 
@@ -87,10 +94,31 @@ class Synset:
     def definition(self):
         pass
 
+    def hypernyms(self):
+        pass
+
+    def hyponyms(self):
+        pass
+
     def examples(self):
         pass
 
     def min_depth(self):
+        pass
+
+
+class RLLexicalUnit:
+    """Relaxtion labeling Lexical Unit interface."""
+    def id_(self):
+        """Identifier."""
+        pass
+
+    def lemma(self):
+        """Lemma."""
+        pass
+
+    def pos(self):
+        """Part of speech."""
         pass
 
 

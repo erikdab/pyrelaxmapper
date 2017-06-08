@@ -4,45 +4,43 @@ import os
 
 import click
 
-from rlabel import main as rl
-from pyrelaxmapper import data, db, conf
-from pyrelaxmapper.plwordnet import queries as plquery, files as plfile
-
-
-# TODO: Temporary, do this better!
-def make_session(db_name='db-default'):
-    """Make DB session."""
-    parser = conf.load_conf()
-    with open(os.path.expanduser(parser['path'][db_name])) as file:
-        settings = conf.load_conf_db(file)
-    engine = db.create_engine(settings)
-    return db.session_start(engine)
+from pyrelaxmapper.rlabel import main as rl
+from pyrelaxmapper import data, conf
+# import pyrelaxmapper.plwordnet.queries as plquery
+# import pyrelaxmapper.plwordnet.files as plfile
+from pyrelaxmapper.plwordnet.source import PLWordNet
 
 
 def db_info():
     """List DB and external datasets info."""
-    limit = 5
+    # limit = 5
 
-    click.secho('Listing file-based dataset summaries:', fg='blue')
-    with open(conf.last_in_paths('domains.txt')) as file:
-        domains = plfile.load_domains(file)
-    click.echo('Domains ({} out of {} total):'.format(limit, len(domains)))
-    click.echo('\n'.join(['\t'.join(domain) for domain in domains[0:limit]]))
-
-    with open(conf.last_in_paths('pos.txt')) as file:
-        pos = plfile.load_pos(file)
-    click.echo('POS ({} out of {} total):'.format(limit, len(pos)))
-    click.echo('\n'.join(['\t'.join(pos_) for pos_ in pos[0:limit]]))
-
-    click.secho('Listing plWordNet DB summaries:')
-    session = make_session()
-    version = plquery.version(session)
-    click.echo('plWN version: {}'.format(version))
-    pwn_mappings = plquery.pwn_mappings(session)
-    click.secho('Preexisting plWN-PWN Mappings ({} out of {}):'
-                .format(limit, pwn_mappings.count()), fg='blue')
-    pwn_mappings = pwn_mappings.limit(limit).all()
-    click.echo('\n'.join(str(mapping) for mapping in pwn_mappings))
+    # click.secho('Listing file-based dataset summaries:', fg='blue')
+    # with open(conf.last_in_paths('domains.txt')) as file:
+    #     domains = plfile.load_domains(file)
+    # click.echo('Domains ({} out of {} total):'.format(limit, len(domains)))
+    # click.echo('\n'.join(['\t'.join(domain) for domain in domains[0:limit]]))
+    #
+    # with open(conf.last_in_paths('pos.txt')) as file:
+    #     pos = plfile.load_pos(file)
+    # click.echo('POS ({} out of {} total):'.format(limit, len(pos)))
+    # click.echo('\n'.join(['\t'.join(pos_) for pos_ in pos[0:limit]]))
+    #
+    # click.secho('Listing plWordNet DB summaries:')
+    # session = make_session()
+    # version = plquery.version(session)
+    # click.echo('plWN version: {}'.format(version))
+    # pwn_mappings = plquery.pwn_mappings(session)
+    # click.secho('Preexisting plWN-PWN Mappings ({} out of {}):'
+    #             .format(limit, pwn_mappings.count()), fg='blue')
+    # pwn_mappings = pwn_mappings.limit(limit).all()
+    # click.echo('\n'.join(str(mapping) for mapping in pwn_mappings))
+    parser = conf.load_conf()
+    session = conf.make_session(parser)
+    plwordnet = PLWordNet(session, parser, True)
+    click.echo('plWN version: {}'.format(plwordnet.version()))
+    # click.echo('PL Wordnet DB version: {}'.format(plwordnet.mappings()))
+    # click.echo('PL Wordnet DB version: {}'.format(plwordnet.synsets_all()))
 
 
 def list_config():
@@ -81,7 +79,7 @@ def make_dicts():
 
 def make_extract():
     """Extract needed data from plWordNet DB."""
-    session = make_session()
+    session = conf.make_session()
     click.secho('Extracting units, synsets, hiper and hiponyms from DB.', fg='blue')
     data.db_extract(session)
     click.secho('Done.', fg='blue')

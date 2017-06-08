@@ -146,7 +146,7 @@ class RelationType(Base):
     parent_id = Column(Integer, ForeignKey('relationtype.id'))
     reverse_id = Column(Integer, ForeignKey('relationtype.id'))
     name = Column(String(255))
-    description = Column(String(500))
+    # description = Column(String(500))
     posstr = Column(String(255))
     autoreverse = Column(Integer)
     # How to display relationship information.

@@ -3,12 +3,15 @@ import os
 import random
 import time
 import logging
-from functools import partial
+# from functools import partial
+import pickle
 
 import numpy as np
 from nltk.corpus import wordnet as pwn
 
 from pyrelaxmapper import conf
+from pyrelaxmapper.plwordnet.source import PLWordNet
+from pyrelaxmapper.rlabel import utils as rlutils
 
 logger = logging.getLogger()
 
@@ -202,54 +205,6 @@ def one():  # pierwsza iteracja
         file.write('\n'.join(no_translations))
     with open(conf.results('no_translations_lu.txt'), 'w', encoding='utf-8') as file:
         file.write('\n'.join(no_translations_lu))
-
-
-def _hiper(synset, hiper_func):
-    """Count hipernyms for the synset.
-
-    Parameters
-    ----------
-    synset
-        Synset name / id
-    hiper_func
-        A function returning direct hipernyms for synset.
-    """
-    do_now = [synset]
-    hipernyms = []
-    while do_now:
-        do_next = []
-        for node in do_now:
-            do_next.extend(hiper_func(node))
-        do_now = do_next
-        hipernyms.extend(do_next)
-    parent = hipernyms[0] if hipernyms else 0
-    return hipernyms, parent
-
-
-def _hipo(synset, hipo_func):
-    """Find hiponyms for synset.
-
-    Parameters
-    ----------
-    synset
-        Synset name (text)
-    hipo_func : FunctionType
-        A function returning direct hyponims for synset.
-        Can be a partial.
-    """
-    todo = [synset]
-    hiponyms = []
-    hipo_layers = []
-    while todo:
-        do_next = []
-        for node in todo:
-            do_next.extend(hipo_func(node))
-        todo = do_next
-        hiponyms.extend(todo)
-        if todo:
-            hipo_layers.append(todo)
-    children = hipo_layers[0]
-    return hiponyms, hipo_layers, children
 
 
 def _hip_pl(node, hip):
@@ -554,7 +509,7 @@ class Constraint:
         pass
 
 
-def rl_loop(config, c='ii', m='t'):
+def rl_loop(c='ii', m='t'):
     """Relation Labeling iterations."""
     iteration = 0
     measures = None
@@ -591,27 +546,28 @@ def _load_two():
                 done_count += 1
         logger.info('Loaded remaining expect for already done: {}'.format(done_count))
 
-    hipernyms = {}
-    with open(conf.results('synset_hipernyms.txt'), 'r', encoding='utf-8') as file:
-        for line in file:
-            cols = (line.strip()).split()
-            hipernyms.setdefault(int(cols[0]), []).append(int(cols[1]))
-        logger.info('Loaded synset hipernyms relations.')
-
-    hiponyms = {}
-    with open(conf.results('synset_hiponyms.txt'), 'r', encoding='utf-8') as file:
-        for line in file:
-            cols = (line.strip()).split()
-            hiponyms.setdefault(int(cols[0]), []).append(int(cols[1]))
-        logger.info('Loaded synset hiponyms relations.')
-
-    syns_text = {}
-    with open(conf.results('synsets_text.txt'), 'r', encoding='utf-8') as file:
-        for line in file:
-            cols = (line.strip()).split()
-            syns_text[int(cols[0])] = cols[1:]
-        logger.info('Loaded synset text.')
-    return mapped, remaining, hipernyms, hiponyms, syns_text
+    # hipernyms = {}
+    # with open(conf.results('synset_hipernyms.txt'), 'r', encoding='utf-8') as file:
+    #     for line in file:
+    #         cols = (line.strip()).split()
+    #         hipernyms.setdefault(int(cols[0]), []).append(int(cols[1]))
+    #     logger.info('Loaded synset hipernyms relations.')
+    #
+    # hiponyms = {}
+    # with open(conf.results('synset_hiponyms.txt'), 'r', encoding='utf-8') as file:
+    #     for line in file:
+    #         cols = (line.strip()).split()
+    #         hiponyms.setdefault(int(cols[0]), []).append(int(cols[1]))
+    #     logger.info('Loaded synset hiponyms relations.')
+    #
+    # syns_text = {}
+    # with open(conf.results('synsets_text.txt'), 'r', encoding='utf-8') as file:
+    #     for line in file:
+    #         cols = (line.strip()).split()
+    #         syns_text[int(cols[0])] = cols[1:]
+    #     logger.info('Loaded synset text.')
+    # return mapped, remaining, hipernyms, hiponyms, syns_text
+    return mapped, remaining
 
 
 def _write_results(weights, current_syn, avg_weight, mapped_count, candidates, no_changes, step2):
@@ -636,31 +592,55 @@ def two(constr, mode):
     step2 = open(conf.results('step2.txt'), 'w', encoding='utf-8')
     no_changes = open(conf.results('no_changes.txt'), 'w', encoding='utf-8')
 
-    mapped, remaining, hiper, hipo, syns_text = _load_two()
+    # mapped, remaining, hiper, hipo, syns_text = _load_two()
+    mapped, remaining = _load_two()
+
+    parser = conf.load_conf()
+    session = conf.make_session(parser)
+    # Cache
+    if os.path.exists(conf.results('cache.pkl')):
+        with open(conf.results('cache.pkl'), 'rb') as file:
+            source = pickle.load(file)
+        logger.info('Loaded plWordNet source from cache.')
+    else:
+        logger.info('Loaded plWordNet source from DB into cache.')
+        source = PLWordNet(session, parser, True)
+
+        with open(conf.results('cache.pkl'), 'wb') as file:
+            pickle.dump(source, file, protocol=pickle.HIGHEST_PROTOCOL)
 
     # config = Config()
     # status = Status()
     # relaxer = Relaxer()
 
+    # This kind of info should be inside a class!
+    # line_nr = 0
+    # which_one = 0
+    suggestions = 0  # algorithm suggestions
+    selected = 0  # algorithm suggestions accepted by the user
+    mapped_count = 0  # algorithm selected without user interaction
+
     weight_hiper = 0.93
     weight_hipo = 1.0
 
-    hiper_func_pl = partial(_hip_pl, hip=hiper)
-    hipo_func_pl = partial(_hip_pl, hip=hipo)
+    tic = time.clock()
+    # hiper_func_pl = partial(_hip_pl, hip=hiper)
+    # hipo_func_pl = partial(_hip_pl, hip=hipo)
     for current in remaining.items():
         # plWN source information
         current_syn = int(current[0])
         candidates = current[1]
+        source_syn = source.synset(current_syn)
         avg_weight = 1. / len(candidates)  # initial weight for each mapping
         weights = (np.ones(len(candidates))) * avg_weight
 
-        hiper_pl, father_pl = _hiper(current_syn, hiper_func_pl)
-        hipo_pl, hipo_pl_layers, children_pl = _hipo(current_syn, hipo_func_pl)
+        hiper_pl, father_pl = rlutils.hiper2(source_syn)
+        hipo_pl, hipo_pl_layers, children_pl = rlutils.hipo2(source_syn)
 
         # traverse through PWN target potential candidates.
         for idx, candidate in enumerate(candidates):
             sons = [pwn_synset.name() for pwn_synset in pwn.synset(candidate).hyponyms()]
-            hiponyms_en, hipo_en_layers, __ = _hipo(candidate, _hipo_en)
+            hiponyms_en, hipo_en_layers, __ = rlutils.hipo(candidate, _hipo_en)
             hipernyms_en, father_en = _hiper_en(candidate)
 
             if constr in ['iie', 'ii']:
@@ -706,6 +686,13 @@ def two(constr, mode):
                      hipo_pl_layers,
                      hipo_en_layers, idx, weights)
 
+    toc = time.clock()
     step2.close()
     no_changes.close()
-    return []
+
+    logger.info("time: {}".format(toc - tic))
+    logger.info("Suggestions: {}".format(suggestions))
+    logger.info("Accepted by user: {}".format(selected))
+    logger.info("Selected by algorithm: {}".format(mapped_count))
+
+    return np.array([toc - tic, suggestions, selected, mapped_count])

@@ -3,7 +3,7 @@ from rlabel import wordnet
 from nltk.corpus import wordnet as wn
 
 
-class PWNWordNet(wordnet.WordNet):
+class PWNRLWordNet(wordnet.RLWordNet):
     def __init(self):
         pass
 
