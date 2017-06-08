@@ -204,158 +204,6 @@ def one():  # pierwsza iteracja
         file.write('\n'.join(no_translations_lu))
 
 
-def rl_loop(c='ii', m='t'):
-    """Relation Labeling iterations."""
-    iteration = 0
-    measures = None
-    # TODO: Completion condition ! This needs to be analyzed
-    while iteration == 0 or sum(measures[:3]):
-        if os.path.exists(conf.results('step2.txt')):
-            with open(conf.results('step2.txt'), 'r', encoding='utf-8') as step2, \
-                    open(conf.results('mapped.txt'), 'a', encoding='utf-8') as mapped:
-                mapped.write(step2.read())
-            os.remove(conf.results('step2.txt'))
-        time_, measures = two(c, m)
-        logger.info('Iteration #{}: {}'.format(iteration, time_))
-        logger.info('Summary : {}'.format(measures))
-        iteration += 1
-    return measures
-
-
-def _load_two():
-    mapped = {}
-    with open(conf.results('mapped.txt'), 'r', encoding='utf-8') as file:
-        for line in file:
-            cols = line.replace('*manually_added:', '').strip().split()
-            mapped[int(cols[0])] = str(cols[1])
-        logger.info('Load already mapped.')
-
-    remaining = {}
-    with open(conf.results('remaining.txt'), 'r', encoding='utf-8') as file:
-        done_count = 0
-        for line in file:
-            cols = (line.strip()).split()
-            if int(cols[0]) not in mapped:
-                remaining[cols[0]] = cols[1:]
-            else:
-                done_count += 1
-        logger.info('Loaded remaining expect for already done: {}'.format(done_count))
-
-    hipernyms = {}
-    with open(conf.results('synset_hipernyms.txt'), 'r', encoding='utf-8') as file:
-        for line in file:
-            cols = (line.strip()).split()
-            hipernyms.setdefault(int(cols[0]), []).append(int(cols[1]))
-        logger.info('Loaded synset hipernyms relations.')
-
-    hiponyms = {}
-    with open(conf.results('synset_hiponyms.txt'), 'r', encoding='utf-8') as file:
-        for line in file:
-            cols = (line.strip()).split()
-            hiponyms.setdefault(int(cols[0]), []).append(int(cols[1]))
-        logger.info('Loaded synset hiponyms relations.')
-
-    syns_text = {}
-    with open(conf.results('synsets_text.txt'), 'r', encoding='utf-8') as file:
-        for line in file:
-            cols = (line.strip()).split()
-            syns_text[int(cols[0])] = cols[1:]
-        logger.info('Loaded synset text.')
-    return mapped, remaining, hipernyms, hiponyms, syns_text
-
-
-# TODO: Allow selecting which ones to evaluate
-def _select_eval(rest):
-    """Select random elements for manual evaluation."""
-    syn_ids = list(rest.keys())
-    selected = set()
-    while len(selected) < 5000:
-        idx = random.randrange(len(rest))
-        selected.add(syn_ids[idx])
-    logger.info('Selected {} synsets to test manually\n'.format(len(selected)))
-    return selected
-
-
-def _eval_prompt(suggestions, weights, syns_text, hiper_pl, hipo_pl, current_syn, candidates,
-                 step2, line_nr, which_one, selected):
-    """Manual evaluation prompt."""
-    suggestions = suggestions + 1
-    try:
-        maxind = np.nonzero([m == max(weights) for m in weights])[0]
-    except IndexError:
-        logger.debug('Can not find candidates..')
-        maxind = 0
-
-    # Some synsets are empty...
-    try:
-        hipern_pl = [syns_text[s] for s in hiper_pl]
-    except KeyError:
-        logger.debug('Synset empty.')
-        hipern_pl = []
-    logger.info('Polish hipernyms: {}'.format(hipern_pl[0:5]))
-
-    try:
-        hipon_pl = [syns_text[s] for s in hipo_pl]
-    except KeyError:
-        logger.debug('Synset empty.')
-        hipon_pl = []
-    logger.info('Polish hiponyms: {}'.format(hipon_pl[0:5]))
-
-    logger.info('Candidates count: {}'.format(len(weights)))
-    logger.info('Candidates for {}:'.format(current_syn))
-    for idx in range(len(weights)):
-        # przegladamy potencjalne dopasowania - elementy tablicy kandydaci
-        logger.info("\n", idx + 1, " ", candidates[idx], ": ",
-                    pwn.synset(str(candidates[idx])).lemma_names())
-        logger.info("\nhipernyms: ", [i.name() for i in
-                                      pwn.synset(candidates[idx]).hypernym_paths()[0]][
-                                     0:5])
-        logger.info("\nhiponyms: ",
-                    [i.name() for i in pwn.synset(candidates[idx]).hyponyms()][0:5], "\n")
-
-    logger.info("\nAlgorithm selected:")
-    if type(maxind) != list:
-        maxind = [maxind]
-    for n in range(len(maxind[0])):
-        logger.info(maxind, maxind[0], maxind[0][n] + 1, " ",
-                    candidates[int(maxind[0][n])])
-    try:
-        odp = input("\nSelect a candidate to assign (0-resign):")
-        if odp != '0':
-            line_nr = line_nr + 1
-            which_one = which_one + 1
-            step2.write(str(line_nr) + " " + str(current_syn) + " " + str(
-                candidates[int(odp) - 1]) + "\n")
-            logger.info("\nans: ", odp, " Assigned ", candidates[int(odp) - 1], " do ",
-                        current_syn,
-                        ".\n")
-            if int(odp) - 1 in maxind[0]:
-                selected = selected + 1
-        odp = input("\nEnter any Key to continue")
-    except ValueError:
-        logger.info("Wrong value???")
-    if which_one % 5 == 1:
-        logger.info("Suggestions: ", suggestions)
-        logger.info("Accepted by user: ", selected)
-        odp = input("\nEnter any Key to continue")
-
-
-def _write_results(weights, current_syn, avg_weight, mapped_count, candidates, no_changes, step2):
-    """Write results for changed and not changed mappings."""
-    if np.all(weights == (np.ones(len(weights))) * avg_weight):
-        info = '{} {}\n'.format(current_syn, ' '.join([str(cand) for cand in candidates]))
-        no_changes.write(info)
-        return
-
-    try:
-        maxind = np.nonzero([m == max(weights) for m in weights])[0]
-    except IndexError:
-        logger.debug('Can not find candidates..')
-        maxind = 0
-    step2.write(str(current_syn) + " " + str(candidates[maxind[0]]) + "\n")
-    mapped_count = mapped_count + 1
-
-
 def _hiper(synset, hiper_func):
     """Count hipernyms for the synset.
 
@@ -416,15 +264,15 @@ def _hipo_en(node):
 
 def _hiper_en(synset):
     """Find hipernyms for PWN synset."""
-    father = []
+    parent = []
     hipernyms = pwn.synset(synset).hypernym_paths()
 
     # TODO: For now only clear paths are used.
     if len(hipernyms) == 1:
         # Proper direction (synset -> hiper -> hiper of hiper). Don't take synset.
         hipernyms = [hiper.name() for hiper in hipernyms[0]][1::-1]
-        father = hipernyms[0]
-    return father, hipernyms
+        parent = hipernyms[0]
+    return hipernyms, parent
 
 
 def _add_weight(weights, idx_add, amount):
@@ -521,7 +369,7 @@ def _iab(mapped, father_pl, hipernyms_en, children_pl, hiponyms_en, weight_hiper
     for syn in children_pl:
         if syn in mapped and mapped[syn] in hiponyms_en:
             dist = ([mapped[syn] in q for q in hipo_en_layers].index(True))
-            weight_val = 2 * weight_hiper + weight_hipo / (2 ** dist)
+            weight_val = 2. * weight_hiper + weight_hipo / (2. ** dist)
             _add_weight(weights, idx, weight_val)
 
 
@@ -569,6 +417,220 @@ def _aab(mapped, hipernyms_pl, hipernyms_en, hiponyms_en, hipo_pl, hipo_pl_layer
             _add_weight(weights, idx, weight_val)
 
 
+class Status:
+    """Status of Relaxation Labeling algorithm."""
+    map_done = None
+    map_todo = None
+
+    all_weights = None
+    all_candidates = None
+
+    file_rlmap = None
+    file_no_changes = None
+
+    wn_source = None
+    wn_target = None
+
+    def __init__(self, config):
+        pass
+
+
+class Stats:
+    """Statistics of Relaxation Labeling algorithm."""
+
+    toc = time.clock()
+    tic = time.clock()
+
+    line_nr = 0
+    which_one = 0
+    suggestions = 0  # algorithm suggestions
+    selected = 0  # algorithm suggestions accepted by the user
+    mapped_count = 0  # algorithm selected without user interaction
+
+    def __init__(self, config, status):
+        self._config = config
+        self.to_eval = self._select_eval(status.map_todo)
+
+    def __str__(self):
+        logger.info("time: {}".format(self.toc - self.tic))
+        logger.info("Suggestions: {}".format(self.suggestions))
+        logger.info("Accepted by user: {}".format(self.selected))
+        logger.info("Selected by algorithm: {}".format(self.mapped_count))
+
+    # TODO: Allow selecting which ones to evaluate
+    def _select_eval(self, rest):
+        """Select random elements for manual evaluation."""
+        syn_ids = list(rest.keys())
+        selected = set()
+        while len(selected) < 5000:
+            idx = random.randrange(len(rest))
+            selected.add(syn_ids[idx])
+        logger.info('Selected {} synsets to test manually\n'.format(len(selected)))
+        return selected
+
+    def _eval_prompt(self, suggestions, weights, syns_text, hiper_pl, hipo_pl, current_syn,
+                     candidates, step2, line_nr, which_one, selected):
+        """Manual evaluation prompt."""
+        suggestions = suggestions + 1
+        try:
+            maxind = np.nonzero([m == max(weights) for m in weights])[0]
+        except IndexError:
+            logger.debug('Can not find candidates..')
+            maxind = 0
+
+        # Some synsets are empty...
+        try:
+            hipern_pl = [syns_text[s] for s in hiper_pl]
+        except KeyError:
+            logger.debug('Synset empty.')
+            hipern_pl = []
+        logger.info('Polish hipernyms: {}'.format(hipern_pl[0:5]))
+
+        try:
+            hipon_pl = [syns_text[s] for s in hipo_pl]
+        except KeyError:
+            logger.debug('Synset empty.')
+            hipon_pl = []
+        logger.info('Polish hiponyms: {}'.format(hipon_pl[0:5]))
+
+        logger.info('Candidates count: {}'.format(len(weights)))
+        logger.info('Candidates for {}:'.format(current_syn))
+        for idx in range(len(weights)):
+            # przegladamy potencjalne dopasowania - elementy tablicy kandydaci
+            logger.info("\n", idx + 1, " ", candidates[idx], ": ",
+                        pwn.synset(str(candidates[idx])).lemma_names())
+            logger.info("\nhipernyms: ", [i.name() for i in
+                                          pwn.synset(candidates[idx]).hypernym_paths()[0]][
+                                         0:5])
+            logger.info("\nhiponyms: ",
+                        [i.name() for i in pwn.synset(candidates[idx]).hyponyms()][0:5], "\n")
+
+        logger.info("\nAlgorithm selected:")
+        if type(maxind) != list:
+            maxind = [maxind]
+        for n in range(len(maxind[0])):
+            logger.info(maxind, maxind[0], maxind[0][n] + 1, " ",
+                        candidates[int(maxind[0][n])])
+        try:
+            odp = input("\nSelect a candidate to assign (0-resign):")
+            if odp != '0':
+                line_nr = line_nr + 1
+                which_one = which_one + 1
+                step2.write(str(line_nr) + " " + str(current_syn) + " " + str(
+                    candidates[int(odp) - 1]) + "\n")
+                logger.info("\nans: ", odp, " Assigned ", candidates[int(odp) - 1], " do ",
+                            current_syn,
+                            ".\n")
+                if int(odp) - 1 in maxind[0]:
+                    selected = selected + 1
+            odp = input("\nEnter any Key to continue")
+        except ValueError:
+            logger.info("Wrong value???")
+        if which_one % 5 == 1:
+            logger.info("Suggestions: ", suggestions)
+            logger.info("Accepted by user: ", selected)
+            odp = input("\nEnter any Key to continue")
+
+    def _toeval(self):
+        pass
+        # if mode == 'i' and current_syn in to_eval:
+        #     _eval_prompt(suggestions, weights, syns_text, hiper_pl, hipo_pl, current_syn,
+        #                  candidates, step2, line_nr, which_one, selected)
+
+
+class Relaxer:
+    """Relaxation labeling relaxer."""
+    _constraints = None
+
+
+class Constraint:
+    """A constraint to be used in Relaxation Labeling."""
+    def __init__(self, status, weight):
+        self._status = status
+        self._weight = weight
+
+    def apply(self):
+        """Apply constraint."""
+        pass
+
+
+def rl_loop(config, c='ii', m='t'):
+    """Relation Labeling iterations."""
+    iteration = 0
+    measures = None
+    # TODO: Completion condition ! This needs to be analyzed
+    while iteration == 0 or sum(measures[:3]):
+        if os.path.exists(conf.results('step2.txt')):
+            with open(conf.results('step2.txt'), 'r', encoding='utf-8') as step2, \
+                    open(conf.results('mapped.txt'), 'a', encoding='utf-8') as mapped:
+                mapped.write(step2.read())
+            os.remove(conf.results('step2.txt'))
+        time_, measures = two(c, m)
+        logger.info('Iteration #{}: {}'.format(iteration, time_))
+        logger.info('Summary : {}'.format(measures))
+        iteration += 1
+    return measures
+
+
+def _load_two():
+    mapped = {}
+    with open(conf.results('mapped.txt'), 'r', encoding='utf-8') as file:
+        for line in file:
+            cols = line.replace('*manually_added:', '').strip().split()
+            mapped[int(cols[0])] = str(cols[1])
+        logger.info('Load already mapped.')
+
+    remaining = {}
+    with open(conf.results('remaining.txt'), 'r', encoding='utf-8') as file:
+        done_count = 0
+        for line in file:
+            cols = (line.strip()).split()
+            if int(cols[0]) not in mapped:
+                remaining[cols[0]] = cols[1:]
+            else:
+                done_count += 1
+        logger.info('Loaded remaining expect for already done: {}'.format(done_count))
+
+    hipernyms = {}
+    with open(conf.results('synset_hipernyms.txt'), 'r', encoding='utf-8') as file:
+        for line in file:
+            cols = (line.strip()).split()
+            hipernyms.setdefault(int(cols[0]), []).append(int(cols[1]))
+        logger.info('Loaded synset hipernyms relations.')
+
+    hiponyms = {}
+    with open(conf.results('synset_hiponyms.txt'), 'r', encoding='utf-8') as file:
+        for line in file:
+            cols = (line.strip()).split()
+            hiponyms.setdefault(int(cols[0]), []).append(int(cols[1]))
+        logger.info('Loaded synset hiponyms relations.')
+
+    syns_text = {}
+    with open(conf.results('synsets_text.txt'), 'r', encoding='utf-8') as file:
+        for line in file:
+            cols = (line.strip()).split()
+            syns_text[int(cols[0])] = cols[1:]
+        logger.info('Loaded synset text.')
+    return mapped, remaining, hipernyms, hiponyms, syns_text
+
+
+def _write_results(weights, current_syn, avg_weight, mapped_count, candidates, no_changes, step2):
+    """Write results for changed and not changed mappings."""
+    if np.all(weights == (np.ones(len(weights))) * avg_weight):
+        info = '{} {}\n'.format(current_syn, ' '.join([str(cand) for cand in candidates]))
+        no_changes.write(info)
+        return
+
+    try:
+        maxind = np.nonzero([m == max(weights) for m in weights])[0]
+    except IndexError:
+        logger.debug('Can not find candidates..')
+        maxind = 0
+    step2.write(str(current_syn) + " " + str(candidates[maxind[0]]) + "\n")
+    mapped_count = mapped_count + 1
+
+
+# Status, Config
 def two(constr, mode):
     """Relaxation labeling iterations"""
     step2 = open(conf.results('step2.txt'), 'w', encoding='utf-8')
@@ -576,20 +638,13 @@ def two(constr, mode):
 
     mapped, remaining, hiper, hipo, syns_text = _load_two()
 
-    if mode == 'i':
-        to_eval = _select_eval(remaining)
-
-    # This kind of info should be inside a class!
-    line_nr = 0
-    which_one = 0
-    suggestions = 0  # algorithm suggestions
-    selected = 0  # algorithm suggestions accepted by the user
-    mapped_count = 0  # algorithm selected without user interaction
+    # config = Config()
+    # status = Status()
+    # relaxer = Relaxer()
 
     weight_hiper = 0.93
     weight_hipo = 1.0
 
-    tic = time.clock()
     hiper_func_pl = partial(_hip_pl, hip=hiper)
     hipo_func_pl = partial(_hip_pl, hip=hipo)
     for current in remaining.items():
@@ -599,14 +654,14 @@ def two(constr, mode):
         avg_weight = 1. / len(candidates)  # initial weight for each mapping
         weights = (np.ones(len(candidates))) * avg_weight
 
-        father_pl, hiper_pl = _hiper(current_syn, hiper_func_pl)
+        hiper_pl, father_pl = _hiper(current_syn, hiper_func_pl)
         hipo_pl, hipo_pl_layers, children_pl = _hipo(current_syn, hipo_func_pl)
 
         # traverse through PWN target potential candidates.
         for idx, candidate in enumerate(candidates):
             sons = [pwn_synset.name() for pwn_synset in pwn.synset(candidate).hyponyms()]
             hiponyms_en, hipo_en_layers, __ = _hipo(candidate, _hipo_en)
-            father_en, hipernyms_en = _hiper_en(candidate)
+            hipernyms_en, father_en = _hiper_en(candidate)
 
             if constr in ['iie', 'ii']:
                 _iie(mapped, father_pl, father_en, weights, idx, weight_hiper, avg_weight)
@@ -651,21 +706,6 @@ def two(constr, mode):
                      hipo_pl_layers,
                      hipo_en_layers, idx, weights)
 
-        if (mode == 't') or (mode == 'i' and current_syn not in to_eval):
-            _write_results(weights, current_syn, avg_weight, mapped_count, candidates, no_changes,
-                           step2)
-
-        if mode == 'i' and current_syn in to_eval:
-            _eval_prompt(suggestions, weights, syns_text, hiper_pl, hipo_pl, current_syn,
-                         candidates, step2, line_nr, which_one, selected)
-
-    toc = time.clock()
-    no_changes.close()
     step2.close()
-
-    logger.info("time: {}".format(toc - tic))
-    logger.info("Suggestions: {}".format(suggestions))
-    logger.info("Accepted by user: {}".format(selected))
-    logger.info("Selected by algorithm: {}".format(mapped_count))
-
-    return np.array([toc - tic, suggestions, selected, mapped_count])
+    no_changes.close()
+    return []
