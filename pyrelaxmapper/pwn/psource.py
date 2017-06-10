@@ -15,12 +15,6 @@ class PWordNet(rlsource.RLWordNet):
         self._synsets = None
         self._load_data()
 
-    def __str__(self):
-        return self._version
-
-    def __repr__(self):
-        return self._version
-
     def version(self):
         return self._version
 
@@ -51,7 +45,7 @@ class PWordNet(rlsource.RLWordNet):
             synsets = wn.all_synsets(pos)
             self._synsets = {}
             for synset in synsets:
-                self._synsets[synset.offset()] = PSynset(self, synset)
+                self._synsets[synset.name()] = PSynset(self, synset)
 
             # TODO: Pickling error? Too much recursion
             # Maybe restore links after loading from pickle?
@@ -75,18 +69,18 @@ class PSynset(rlsource.RLSynset):
 
     def __init__(self, pwordnet,  nltk_synset):
         self._pwordnet = pwordnet
-        self._id = nltk_synset.offset()
+        self._id = nltk_synset.name()
         self._name = nltk_synset.name()
         self._pos = nltk_synset.pos()
         # nltk.lexname() 'noun.animal'!!
         self._lemmas = []
         for lemma in nltk_synset.lemmas():
-            self._lemmas.append(PLexicalUnit(self._id, self._name, lemma.name(), self._pos))
-        self._hypernyms = [syn.offset() for syn in nltk_synset.hypernyms()]
+            self._lemmas.append(PLexicalUnit(self._name, lemma.name(), self._pos))
+        self._hypernyms = [syn.name() for syn in nltk_synset.hypernyms()]
         self._hypernym_paths = []
         for path in nltk_synset.hypernym_paths():
-            self._hypernym_paths.append([syn.offset() for syn in path])
-        self._hyponyms = [syn.offset() for syn in nltk_synset.hyponyms()]
+            self._hypernym_paths.append([syn.name() for syn in path])
+        self._hyponyms = [syn.name() for syn in nltk_synset.hyponyms()]
         # self._hypernyms = []
         # self._hypernym_paths = []
         # self._hyponyms = []
@@ -112,7 +106,7 @@ class PSynset(rlsource.RLSynset):
         for hypernym_path in old:
             path = []
             for hypernym in hypernym_path:
-                path.append(pwordnet.synset(hypernym.offset()))
+                path.append(pwordnet.synset(hypernym.name()))
             self._hypernym_paths.append(path)
 
     def lemmas(self):
@@ -155,9 +149,8 @@ class PLexicalUnit(rlsource.RLLexicalUnit):
     pos : int or str
         Lexical Unit pos
     """
-    def __init__(self, synset_id, synset, lemma, pos):
+    def __init__(self, synset, lemma, pos):
         self._synset = synset
-        self._synset_id = synset_id
         self._lemma = lemma
         self._pos = pos
 

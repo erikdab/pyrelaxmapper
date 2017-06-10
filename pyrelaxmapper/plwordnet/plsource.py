@@ -4,6 +4,7 @@ from pyrelaxmapper.rlabel import rlsource
 
 
 # Could load all, then allow to cache it all into a pickle objects.
+# seperate cache: synsets, lunits, relations?
 class PLWordNet(rlsource.RLWordNet):
     """plWordNet WordNet interface."""
 
@@ -11,7 +12,7 @@ class PLWordNet(rlsource.RLWordNet):
     POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4,
            'v_en': 5, 'n_en': 6, 'r_en': 7, 'a_en': 8}
 
-    def __init__(self, session):
+    def __init__(self, session=None):
         self._version = ''
         self._synsets = {}
         self._lunits = {}
@@ -25,6 +26,7 @@ class PLWordNet(rlsource.RLWordNet):
         return self._version
 
     def synset(self, id_):
+        id_ = int(id_)
         return self._synsets[id_]
 
     def synsets(self, lemma, pos=None):
@@ -34,12 +36,15 @@ class PLWordNet(rlsource.RLWordNet):
         return self._synsets
 
     def hypernyms(self, id_):
+        id_ = int(id_)
         return self._hypernyms[id_] if id_ in self._hypernyms else []
 
     def hypernym_paths(self, id_):
+        id_ = int(id_)
         return self._hypernym_paths[id_] if id_ in self._hypernym_paths else []
 
     def hyponyms(self, id_):
+        id_ = int(id_)
         return self._hyponyms[id_] if id_ in self._hyponyms else []
 
     # Should take into account pos we want to load.
@@ -53,6 +58,9 @@ class PLWordNet(rlsource.RLWordNet):
         ----------
         session : sqlalchemy.orm.session.Session
         """
+        if not session:
+            return
+
         if not self._lunits:
             pos = [self.POS['n'], self.POS['n_en']]
             # Lexical Units
@@ -108,7 +116,8 @@ class PLWordNet(rlsource.RLWordNet):
                         do_next.extend(node.hypernyms())
                     do_now = do_next
                     hypernym_paths.extend(do_next)
-                self._hypernym_paths[synset.id_()] = [hypernym_paths]
+                hypernym_paths.append(synset)
+                self._hypernym_paths[synset.id_()] = [hypernym_paths[::-1]]
 
         # if any(name in ['mappings', 'all'] for name in names) and not self._mappings:
         #     self._mappings = queries.pwn_mappings(self._session).all()

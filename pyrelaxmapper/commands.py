@@ -4,7 +4,7 @@ import os
 
 import click
 
-from pyrelaxmapper.rlabel import main as rl
+from pyrelaxmapper.rlabel import poly, mono
 from pyrelaxmapper import data, conf
 # import pyrelaxmapper.plwordnet.queries as plquery
 # import pyrelaxmapper.plwordnet.files as plfile
@@ -37,7 +37,7 @@ def db_info():
     # click.echo('\n'.join(str(mapping) for mapping in pwn_mappings))
     parser = conf.load_conf()
     session = conf.make_session(parser)
-    plwordnet = PLWordNet(session, parser, True)
+    plwordnet = PLWordNet(session)
     click.echo('plWN version: {}'.format(plwordnet.version()))
     # click.echo('PL Wordnet DB version: {}'.format(plwordnet.mappings()))
     # click.echo('PL Wordnet DB version: {}'.format(plwordnet.synsets_all()))
@@ -88,7 +88,9 @@ def make_extract():
 
 def make_clean():
     """Clean ONLY mapping results."""
-    files = ['pierwsi', 'pierwsi2', 'pozostali', 'pozostali2', 'pozostali3']
+    # files = ['mapped', 'mapped_info', 'no_changes', 'no_translations', 'no_translations_lu',
+    #          'remaining', 'remaining_info', 'remaining_info2', 'step2']
+    files = []
     for file in files:
         path = conf.results(file+'.txt')
         if os.path.exists(path):
@@ -100,12 +102,12 @@ def make_clean():
 def make_mono():
     """Create monosemous mappings between plWN and PWN."""
     click.secho('Running monosemous mapping.', fg='blue')
-    rl.one()
+    mono.one()
     click.secho('Done monosemous mapping.', fg='blue')
 
 
 def make_poly():
     """Create polysemous mappings between plWN and PWN."""
     click.secho('Running polysemous mapping.', fg='blue')
-    rl.rl_loop()
+    poly.rl_loop()
     click.secho('Done polysemous mapping.', fg='blue')
