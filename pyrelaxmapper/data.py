@@ -45,7 +45,7 @@ def db_extract(session, nouns_only=True):
     """Extract data from plWordNet to files."""
     with open(conf.results('units.txt'), "w", encoding="utf-8") as file:
         lunits = plqueries.lunits(session).all()
-        file.write('\n'.join('{} {}'.format(lunit.id_, lunit.lemma.replace(' ', '_'))
+        file.write('\n'.join('{} {}'.format(lunit.id_, lunit.name.replace(' ', '_'))
                              for lunit in lunits))
 
     with open(conf.results('synsets.txt'), "w", encoding="utf-8") as file_ids, \

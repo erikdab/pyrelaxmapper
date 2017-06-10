@@ -9,9 +9,10 @@ import pickle
 import numpy as np
 from nltk.corpus import wordnet as pwn
 
+from pyrelaxmapper.pwn.psource import PWordNet
 from pyrelaxmapper import conf
-from pyrelaxmapper.plwordnet.source import PLWordNet
-from pyrelaxmapper.rlabel import utils as rlutils
+from pyrelaxmapper.plwordnet.plsource import PLWordNet
+from pyrelaxmapper.rlabel import rlutils
 
 logger = logging.getLogger()
 
@@ -533,7 +534,7 @@ def _load_two():
         for line in file:
             cols = line.replace('*manually_added:', '').strip().split()
             mapped[int(cols[0])] = str(cols[1])
-        logger.info('Load already mapped.')
+        logger.info('Load already mapped: {}'.format(len(mapped)))
 
     remaining = {}
     with open(conf.results('remaining.txt'), 'r', encoding='utf-8') as file:
@@ -597,17 +598,35 @@ def two(constr, mode):
 
     parser = conf.load_conf()
     session = conf.make_session(parser)
-    # Cache
-    if os.path.exists(conf.results('cache.pkl')):
-        with open(conf.results('cache.pkl'), 'rb') as file:
-            source = pickle.load(file)
-        logger.info('Loaded plWordNet source from cache.')
-    else:
-        logger.info('Loaded plWordNet source from DB into cache.')
-        source = PLWordNet(session, parser, True)
 
-        with open(conf.results('cache.pkl'), 'wb') as file:
+    # Cache plWN
+    cache_pl = conf.results('cache_pl.pkl')
+    logger.info('Loading plWordNet source.')
+    if os.path.exists(cache_pl):
+        with open(cache_pl, 'rb') as file:
+            source = pickle.load(file)
+        logger.info('Loaded from cache.')
+    else:
+        source = PLWordNet(session)
+
+        with open(cache_pl, 'wb') as file:
             pickle.dump(source, file, protocol=pickle.HIGHEST_PROTOCOL)
+        logger.info('Loaded from DB into cache.')
+    source = None
+
+    # Cache PWN
+    cache_en = conf.results('cache_en.pkl')
+    logger.info('Loading PWN target.')
+    if os.path.exists(cache_en):
+        with open(cache_en, 'rb') as file:
+            target = pickle.load(file)
+        logger.info('Loaded from cache.')
+    else:
+        target = PWordNet()
+
+        with open(cache_en, 'wb') as file:
+            pickle.dump(target, file, protocol=pickle.HIGHEST_PROTOCOL)
+        logger.info('Loaded from NLTK into cache.')
 
     # config = Config()
     # status = Status()
@@ -634,14 +653,15 @@ def two(constr, mode):
         avg_weight = 1. / len(candidates)  # initial weight for each mapping
         weights = (np.ones(len(candidates))) * avg_weight
 
-        hiper_pl, father_pl = rlutils.hiper2(source_syn)
-        hipo_pl, hipo_pl_layers, children_pl = rlutils.hipo2(source_syn)
+        hiper_pl, father_pl = rlutils.hiper(source_syn)
+        hipo_pl, hipo_pl_layers, children_pl = rlutils.hipo(source_syn)
 
         # traverse through PWN target potential candidates.
         for idx, candidate in enumerate(candidates):
-            sons = [pwn_synset.name() for pwn_synset in pwn.synset(candidate).hyponyms()]
-            hiponyms_en, hipo_en_layers, __ = rlutils.hipo(candidate, _hipo_en)
-            hipernyms_en, father_en = _hiper_en(candidate)
+            candidate_ = target.synset(candidate)
+            hiponyms_en, hipo_en_layers, __ = rlutils.hipo(candidate_)
+            hipernyms_en, father_en = rlutils.hiper_path(candidate_)
+            sons = [pwn_synset.name() for pwn_synset in candidate_.hyponyms()]
 
             if constr in ['iie', 'ii']:
                 _iie(mapped, father_pl, father_en, weights, idx, weight_hiper, avg_weight)
