@@ -8,7 +8,7 @@ from pyrelaxmapper.rlabel import main as rl
 from pyrelaxmapper import data, conf
 # import pyrelaxmapper.plwordnet.queries as plquery
 # import pyrelaxmapper.plwordnet.files as plfile
-from pyrelaxmapper.plwordnet.source import PLWordNet
+from pyrelaxmapper.plwordnet.plsource import PLWordNet
 
 
 def db_info():
@@ -79,7 +79,8 @@ def make_dicts():
 
 def make_extract():
     """Extract needed data from plWordNet DB."""
-    session = conf.make_session()
+    parser = conf.load_conf()
+    session = conf.make_session(parser)
     click.secho('Extracting units, synsets, hiper and hiponyms from DB.', fg='blue')
     data.db_extract(session)
     click.secho('Done.', fg='blue')
