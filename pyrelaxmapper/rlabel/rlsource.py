@@ -8,16 +8,15 @@
 # If DB, relationships between all objects.
 # TODO: Links between RLSynset and RLLexicalUnit and back
 # (expect for plWordNet source)
+
+
 class RLWordNet:
     """WordNet Interface.
 
     Define which features it supports. Maybe specify WordNet config"""
-    def __str__(self):
-        return self.version()
-
     def __repr__(self):
         format = "{}({})" if isinstance(self.version(), int) else "{}('{}')"
-        return format.format(type(self).__name__, self.__str__())
+        return format.format(type(self).__name__, self.version())
 
     def version(self):
         """RL Source version (any format).
@@ -83,12 +82,9 @@ class RLWordNet:
 
 class RLSynset:
     """RL Source Synset interface."""
-    def __str__(self):
-        return self.name()
-
     def __repr__(self):
         format = "{}({})" if isinstance(self.name(), int) else "{}('{}')"
-        return format.format(type(self).__name__, self.__str__())
+        return format.format(type(self).__name__, self.name())
 
     def id_(self):
         """Unique identifier.
@@ -175,14 +171,11 @@ class RLSynset:
 
 class RLLexicalUnit:
     """RL Source Lexical Unit interface."""
-    def __str__(self):
-        return self.name()
-
     def __repr__(self):
         # tup = type(self).__name__, self._synset._name, self._name
         # return "{}('{}.{}')".format(*tup)
         format = "{}({})" if isinstance(self.name(), int) else "{}('{}')"
-        return format.format(type(self).__name__, self.__str__())
+        return format.format(type(self).__name__, self.name())
 
     def id_(self):
         """Unique identifier."""
