@@ -5,6 +5,8 @@ import pickle
 
 from nltk.corpus import wordnet as pwn
 
+import conf
+
 logger = logging.getLogger()
 
 
@@ -97,23 +99,39 @@ def _hiper_en(synset):
     return hipernyms, parent
 
 
-# Could just ask for function
-def cached(filename, type_, type_args=None):
+def cached(filename, func, args=None, info=None):
     """Load from cache file or create and save to cached file.
 
     Parameters
     ----------
-    file
+    filename
         file to load/save cache
+    func
+        Can be function, or class
+    args
+        Args to pass to function / class
+    info
+        Info to print.
     """
-    if type_args is None:
-        type_args = []
+    if args is None:
+        args = []
+
+    if not isinstance(args, list):
+        args = [args]
+
+    if '.pkl' not in filename:
+        filename += '.pkl'
+
+    filename = conf.cache(filename)
 
     if os.path.exists(filename):
+        logger.info('Loading {} from cache.'.format(func.__name__))
         source = load_obj(filename)
     else:
-        source = type_(*type_args)
+        logger.info('Loading {} live.'.format(func.__name__))
+        source = func(*args)
         save_obj(source, filename)
+    logger.info('Loaded {}.'.format(func.__name__))
     return source
 
 

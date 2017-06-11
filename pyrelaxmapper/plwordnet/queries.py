@@ -3,6 +3,7 @@
 from sqlalchemy import orm
 from sqlalchemy.sql import func, expression
 
+import conf
 from . import models
 from .models import LexicalUnit, Synset, SynsetRelation, RelationType, UnitSynset
 
@@ -168,3 +169,38 @@ def synset_relations(session, types=None):
             .filter(SynsetRelation.rel_id.in_(types))
             .order_by(SynsetRelation.rel_id, SynsetRelation.parent_id)
             )
+
+
+def extract_files(session, nouns_only=True):
+    """Extract data from plWordNet to files."""
+    with open(conf.results('units.txt'), "w", encoding="utf-8") as file:
+        lunits_ = lunits(session).all()
+        file.write('\n'.join('{} {}'.format(lunit.id_, lunit.name.replace(' ', '_'))
+                             for lunit in lunits_))
+
+    with open(conf.results('synsets.txt'), "w", encoding="utf-8") as file_ids, \
+            open(conf.results('synsets_text.txt'), "w", encoding="utf-8") as file_text:
+        synsets_ = synsets(session).all()
+
+        lu_ids = ('{} {}'.format(synset.id_, ' '.join(synset.lu_ids.split(',')))
+                  for synset in synsets_)
+        file_ids.write('\n'.join(lu_ids))
+
+        lu_lemmas = ('{} {}'.format(synset.id_,
+                                    ' '.join(synset.lu_lemmas.replace(' ', '_').split(',')))
+                     for synset in synsets_)
+        file_text.write('\n'.join(lu_lemmas))
+
+    with open(conf.results('synset_hipernyms.txt'), "w", encoding="utf-8") as file_hiper, \
+            open(conf.results('synset_hiponyms.txt'), "w", encoding="utf-8") as file_hipo:
+        hiper_count = synset_relations(session, [10]).count()
+        relations = synset_relations(session).all()
+        hipernyms, hiponyms = relations[:hiper_count], relations[hiper_count:]
+
+        hipernyms_out = ('{} {}'.format(relation.parent_id, relation.child_id)
+                         for relation in hipernyms)
+        file_hiper.write('\n'.join(hipernyms_out))
+
+        hiponyms_out = ('{} {}'.format(relation.parent_id, relation.child_id)
+                        for relation in hiponyms)
+        file_hipo.write('\n'.join(hiponyms_out))

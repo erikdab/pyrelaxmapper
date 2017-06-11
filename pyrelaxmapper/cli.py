@@ -31,6 +31,8 @@ def make(actions, clean):
         commands.make_dicts()
     if any(action in ['extract', 'all'] for action in actions):
         commands.make_extract()
+    if any(action in ['trans', 'all'] for action in actions):
+        commands.make_translate()
     if clean and any(action in ['mono', 'poly', 'all'] for action in actions):
         commands.make_clean()
     if any(action in ['map', 'mono', 'all'] for action in actions):

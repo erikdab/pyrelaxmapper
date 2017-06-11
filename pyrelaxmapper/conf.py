@@ -33,9 +33,25 @@ def results(filename):
     return os.path.abspath(os.path.join(output, filename))
 
 
-def make_session(parser, db_name='db-default'):
+def cache(filename):
+    """Get absolute filename of new data file."""
+    output = os.path.join(os.path.expanduser(config['path']['output']), 'cache')
+    if not os.path.exists(output):
+        os.makedirs(output)
+    return os.path.abspath(os.path.join(output, filename))
+
+
+def data(filename):
+    """Get absolute filename of new data file."""
+    output = os.path.expanduser(config['path']['data'])
+    if not os.path.exists(output):
+        os.makedirs(output)
+    return os.path.abspath(os.path.join(output, filename))
+
+
+def make_session(db_name='db-default'):
     """Make DB session."""
-    with open(os.path.expanduser(parser['path'][db_name])) as file:
+    with open(os.path.expanduser(config['path'][db_name])) as file:
         settings = load_conf_db(file)
     engine = db.create_engine(settings)
     return db.session_start(engine)

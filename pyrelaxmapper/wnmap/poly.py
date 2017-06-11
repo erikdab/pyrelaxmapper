@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
+import logging
 import os
 import time
-import logging
 
 import numpy as np
 
-from pyrelaxmapper.pwn.psource import PWordNet
 from pyrelaxmapper import conf
 from pyrelaxmapper.plwordnet.plsource import PLWordNet
-from pyrelaxmapper.rlabel import rlutils
-from rlabel import constraint
+from pyrelaxmapper.pwn.psource import PWordNet
+from pyrelaxmapper.wnmap import constraint
 
 logger = logging.getLogger()
 
