@@ -8,7 +8,7 @@ import numpy as np
 from pyrelaxmapper import conf
 from pyrelaxmapper.plwordnet.plsource import PLWordNet
 from pyrelaxmapper.pwn.psource import PWordNet
-from pyrelaxmapper.wnmap import constraint
+from pyrelaxmapper.wnmap import constraint, wnutils
 
 logger = logging.getLogger()
 
@@ -103,11 +103,11 @@ def two(constr, mode):
 
     # Uncached: 13.664 sec., cached: 2.072 sec.
     logger.info('Loading plWordNet source.')
-    source, from_cache = rlutils.cached(conf.results('cache_pl.pkl'), PLWordNet, [session])
+    source, from_cache = wnutils.cached(conf.results('cache_pl.pkl'), PLWordNet, [session])
 
     # Uncached: 17.885 sec., cached: 1.325 sec.
     logger.info('Loading PWN target.')
-    target, from_cache = rlutils.cached(conf.results('cache_en.pkl'), PWordNet)
+    target, from_cache = wnutils.cached(conf.results('cache_en.pkl'), PWordNet)
 
     # config = Config()
     # status = Status()
@@ -127,8 +127,8 @@ def two(constr, mode):
     for current in remaining.items():
         # plWN source information
         source_syn = source.synset(current[0])
-        hiper_pl, father_pl = rlutils.hiper_path(source_syn)
-        hipo_pl, hipo_pl_layers, children_pl = rlutils.hipo(source_syn)
+        hiper_pl, father_pl = wnutils.hiper_path(source_syn)
+        hipo_pl, hipo_pl_layers, children_pl = wnutils.hipo(source_syn)
 
         candidates = current[1]
         avg_weight = 1. / len(candidates)  # initial weight for each mapping
@@ -137,8 +137,8 @@ def two(constr, mode):
         # traverse through target potential candidates.
         for idx, target_name in enumerate(candidates):
             target_syn = target.synset(target_name)
-            hiper_en, father_en = rlutils.hiper_path(target_syn)
-            hipo_en, hipo_en_layers, children_en = rlutils.hipo(target_syn)
+            hiper_en, father_en = wnutils.hiper_path(target_syn)
+            hipo_en, hipo_en_layers, children_en = wnutils.hipo(target_syn)
 
             if constr in ['iie', 'ii']:
                 constraint.iie(mapped, father_pl, father_en, weights, idx, weight_hiper,

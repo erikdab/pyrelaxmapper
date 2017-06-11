@@ -8,7 +8,7 @@ from nltk.corpus import wordnet as pwn
 # from pyrelaxmapper.pwn.psource import PWordNet
 from pyrelaxmapper import conf
 from pyrelaxmapper.plwordnet.plsource import PLWordNet
-from pyrelaxmapper.rlabel import rlutils
+from pyrelaxmapper.wnmap import wnutils
 
 logger = logging.getLogger()
 
@@ -136,16 +136,16 @@ def one():  # pierwsza iteracja
     # logger.info('Loaded synsets, count: {}'.format(len(synsets)))
     # logger.info('Loaded lexical units, count: {}'.format(len(lunits)))
 
-    dictionary = rlutils.load_obj(conf.results('cache_dict.pkl'))
+    dictionary = wnutils.load_obj(conf.results('cache_dict.pkl'))
 
     parser = conf.load_conf()
     session = conf.make_session(parser)
 
     logger.info('Loading plWordNet source.')
-    source = rlutils.cached(conf.results('cache_pl.pkl'), PLWordNet, [session])
+    source = wnutils.cached(conf.results('cache_pl.pkl'), PLWordNet, [session])
 
     # logger.info('Loading PWN target.')
-    # target = rlutils.cached(conf.results('cache_en.pkl'), PWordNet)
+    # target = wnutils.cached(conf.results('cache_en.pkl'), PWordNet)
 
     logger.info('Loaded translations, count: {}'.format(len(dictionary)))
     logger.info('Loaded synsets, count: {}'.format(len(synsets._synsets)))
