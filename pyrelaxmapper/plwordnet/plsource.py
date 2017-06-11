@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 from pyrelaxmapper.plwordnet import queries
-from pyrelaxmapper.rlabel import rlsource
+from pyrelaxmapper.wnmap import wnsource
 
 
 # Could load all, then allow to cache it all into a pickle objects.
 # seperate cache: synsets, lunits, relations?
-class PLWordNet(rlsource.RLWordNet):
+class PLWordNet(wnsource.RLWordNet):
     """plWordNet WordNet interface."""
 
     RELATION_TYPES = {'hypernyms': 10, 'hyponyms': 11}
@@ -32,8 +32,11 @@ class PLWordNet(rlsource.RLWordNet):
     def synsets(self, lemma, pos=None):
         pass
 
+    def lunits_all(self):
+        return self._lunits.values()
+
     def synsets_all(self):
-        return self._synsets
+        return self._synsets.values()
 
     def hypernyms(self, id_):
         id_ = int(id_)
@@ -135,7 +138,7 @@ class PLWordNet(rlsource.RLWordNet):
 
 
 # Figure out how to have name!
-class PLSynset(rlsource.RLSynset):
+class PLSynset(wnsource.RLSynset):
     """plWordNet Synset interface.
 
     Parameters
@@ -179,7 +182,7 @@ class PLSynset(rlsource.RLSynset):
         return self._lunits[0].pos() if self._lunits else 0
 
 
-class PLLexicalUnit(rlsource.RLLexicalUnit):
+class PLLexicalUnit(wnsource.RLLexicalUnit):
     """plWN RL Source Lexical Unit.
 
     Parameters

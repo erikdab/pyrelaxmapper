@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Dict building utilities."""
 from xml.etree.ElementTree import ElementTree
-from . import tools
+from pyrelaxmapper.wnmap import tools
 import time
 
 

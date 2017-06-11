@@ -4,11 +4,12 @@ import os
 
 import click
 
-from pyrelaxmapper.rlabel import poly, mono
+from pyrelaxmapper.wnmap import poly, mono
 from pyrelaxmapper import data, conf
 # import pyrelaxmapper.plwordnet.queries as plquery
 # import pyrelaxmapper.plwordnet.files as plfile
 from pyrelaxmapper.plwordnet.plsource import PLWordNet
+from wnmap import dictionary
 
 
 def db_info():
@@ -84,6 +85,10 @@ def make_extract():
     click.secho('Extracting units, synsets, hiper and hiponyms from DB.', fg='blue')
     data.db_extract(session)
     click.secho('Done.', fg='blue')
+
+
+def make_translate():
+    dictionary.translate()
 
 
 def make_clean():

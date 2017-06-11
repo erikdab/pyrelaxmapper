@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 from nltk.corpus import wordnet as wn
 
-from pyrelaxmapper.rlabel import rlsource
+from pyrelaxmapper.wnmap import wnsource
 
 
 # SHOULD create an NLTK and SQL PWN source!
-class PWordNet(rlsource.RLWordNet):
+class PWordNet(wnsource.RLWordNet):
     """WordNet WordNet interface."""
     POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4}
 
@@ -57,7 +57,7 @@ class PWordNet(rlsource.RLWordNet):
             self._version = 'PWN {}'.format(wn.get_version())
 
 
-class PSynset(rlsource.RLSynset):
+class PSynset(wnsource.RLSynset):
     """WordNet Synset interface.
 
     Parameters
@@ -137,7 +137,7 @@ class PSynset(rlsource.RLSynset):
         return self._pos
 
 
-class PLexicalUnit(rlsource.RLLexicalUnit):
+class PLexicalUnit(wnsource.RLLexicalUnit):
     """PWN RL Source Lexical Unit.
 
     Parameters
