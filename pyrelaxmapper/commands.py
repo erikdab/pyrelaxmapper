@@ -4,12 +4,12 @@ import os
 
 import click
 
-from pyrelaxmapper.wnmap import poly, mono
-from pyrelaxmapper import data, conf
+# from pyrelaxmapper.wnmap import poly, mono
+from pyrelaxmapper import conf
 # import pyrelaxmapper.plwordnet.queries as plquery
 # import pyrelaxmapper.plwordnet.files as plfile
 from pyrelaxmapper.plwordnet.plsource import PLWordNet
-from wnmap import dictionary
+from wnmap import wndict
 
 
 def db_info():
@@ -70,25 +70,25 @@ def make_dicts():
         exit(1)
     click.secho("Generating dict. Sources:", fg='blue')
     click.echo(str(names))
-    lang_dict = data.cascade_dicts(conf.yield_lines(index))
+    # lang_dict = data.cascade_dicts(conf.yield_lines(index))
 
-    filename = conf.results('translations.txt')
-    with open(filename, 'w') as file:
-        file.write('\n'.join(key+' '+' '.join(terms) for key, terms in lang_dict.items()))
-    click.secho('Done. Results stored in: {}'.format(filename), fg='blue')
+    # filename = conf.results('translations.txt')
+    # with open(filename, 'w') as file:
+    #     file.write('\n'.join(key+' '+' '.join(terms) for key, terms in lang_dict.items()))
+    # click.secho('Done. Results stored in: {}'.format(filename), fg='blue')
 
 
 def make_extract():
     """Extract needed data from plWordNet DB."""
-    parser = conf.load_conf()
-    session = conf.make_session(parser)
+    # parser = conf.load_conf()
+    # session = conf.make_session(parser)
     click.secho('Extracting units, synsets, hiper and hiponyms from DB.', fg='blue')
-    data.db_extract(session)
+    # data.db_extract(session)
     click.secho('Done.', fg='blue')
 
 
 def make_translate():
-    dictionary.translate()
+    wndict.translate()
 
 
 def make_clean():
@@ -107,12 +107,12 @@ def make_clean():
 def make_mono():
     """Create monosemous mappings between plWN and PWN."""
     click.secho('Running monosemous mapping.', fg='blue')
-    mono.one()
+    # mono.mono()
     click.secho('Done monosemous mapping.', fg='blue')
 
 
 def make_poly():
     """Create polysemous mappings between plWN and PWN."""
     click.secho('Running polysemous mapping.', fg='blue')
-    poly.rl_loop()
+    # poly.rl_loop()
     click.secho('Done polysemous mapping.', fg='blue')

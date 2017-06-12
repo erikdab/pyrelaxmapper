@@ -31,13 +31,8 @@ class Dictionary:
         return "{}('{}')".format(type(self).__name__, self.name())
 
     @staticmethod
-    def clean(term):
-        rep = {' ': '_', '(': '', ')': '', 'the ': '', '/': ''}
-        return utils.multi_replace(term.strip().lower(), rep)
-
-    @staticmethod
     def clean_trans(terms):
-        terms_ = [Dictionary.clean(term) for term in terms]
+        terms_ = [wnutils.clean(term) for term in terms]
         filtered = list(filter(None, terms_))
         return filtered if terms_[0] and len(filtered) >= 2 else ['', '']
 
@@ -73,9 +68,6 @@ class CascadingDict(Dictionary):
         i = 0
         for line in conf.yield_lines(index):
             self.add_terms(line.split('\t'))
-            if i % 100000 == 0:
-                logger.info('it: {}'.format(i))
-            i += 1
 
 
 class Translater:
@@ -106,11 +98,11 @@ class Translater:
             Tuple containing translated and not translated lexical units.
         """
         for lemma in lemmas:
-            lemma = Dictionary.clean(lemma)
             if lemma in self.translated or lemma in self.not_translated:
                 continue
+            cleaned = wnutils.clean(lemma)
             for dict_id, dict_ in enumerate(self.dicts):
-                dict_trans = dict_.search(lemma)
+                dict_trans = dict_.search(cleaned)
                 if dict_trans:
                     self.translated.setdefault(lemma, set()).update(dict_trans)
                     self.dicts_count[dict_id] += 1
@@ -122,8 +114,11 @@ class Translater:
 
 def translate():
     """Translate Polish Lexical Units to English."""
-    ps = wnutils.cached('piotr_saloni', PiotrSaloni, args=conf.data('PL-ANG'))
+    # no spaces     spaces
+    # 644361        654061
     cd = wnutils.cached('cascading_dict', CascadingDict, args=conf.data('dicts'))
+    # 597655        597654
+    ps = wnutils.cached('piotr_saloni', PiotrSaloni, args=conf.data('PL-ANG'))
     trans = Translater([cd, ps])
 
     lunits = {}
@@ -137,6 +132,7 @@ def translate():
     # Improved:
     # 57423/127354
     # [54828, 54994]
+    # Dicts:[44296, 55678] Total:57168 of 128213
     # Could measure how much each one gave us..
     trans.translate(lemmas)
     total = len(trans.translated) + len(trans.not_translated)

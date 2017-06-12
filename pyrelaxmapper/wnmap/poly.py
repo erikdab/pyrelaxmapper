@@ -6,15 +6,21 @@ import time
 import numpy as np
 
 from pyrelaxmapper import conf
-from pyrelaxmapper.plwordnet.plsource import PLWordNet
-from pyrelaxmapper.pwn.psource import PWordNet
+# from pyrelaxmapper.plwordnet.plsource import PLWordNet
+# from pyrelaxmapper.pwn.psource import PWordNet
 from pyrelaxmapper.wnmap import constraint, wnutils
 
 logger = logging.getLogger()
 
 
-def rl_loop(c='ii', m='t'):
-    """Relation Labeling iterations."""
+def rl_loop(stats, config):
+    """Relation Labeling iterations.
+
+    Parameters
+    ----------
+    stats : pyrelaxmapper.wnmapper.stats.Statistics
+    config : pyrelaxmapper.wnmapper.wnconfig.WNConfig
+    """
     iteration = 0
     measures = None
     # TODO: Completion condition ! This needs to be analyzed
@@ -24,13 +30,15 @@ def rl_loop(c='ii', m='t'):
                     open(conf.results('mapped.txt'), 'a', encoding='utf-8') as mapped:
                 mapped.write(step2.read())
             os.remove(conf.results('step2.txt'))
-        time_, measures = two(c, m)
+        time_, measures = two(stats, config)
         logger.info('Iteration #{}: {}'.format(iteration, time_))
         logger.info('Summary : {}'.format(measures))
+        # TODO: All iterations thingies with stats here.
         iteration += 1
     return measures
 
 
+# Inside stats.
 def _load_two():
     mapped = {}
     with open(conf.results('mapped.txt'), 'r', encoding='utf-8') as file:
@@ -74,6 +82,7 @@ def _load_two():
     return mapped, remaining
 
 
+# TODO: Place inside stats
 def _write_results(weights, current_syn, avg_weight, mapped_count, candidates, no_changes, step2):
     """Write results for changed and not changed mappings."""
     if np.all(weights == (np.ones(len(weights))) * avg_weight):
@@ -91,23 +100,16 @@ def _write_results(weights, current_syn, avg_weight, mapped_count, candidates, n
 
 
 # Status, Config
-def two(constr, mode):
+def two(stats, config):
     """Relaxation labeling iterations"""
     step2 = open(conf.results('step2.txt'), 'w', encoding='utf-8')
     no_changes = open(conf.results('no_changes.txt'), 'w', encoding='utf-8')
 
     mapped, remaining = _load_two()
 
-    parser = conf.load_conf()
-    session = conf.make_session(parser)
-
-    # Uncached: 13.664 sec., cached: 2.072 sec.
-    logger.info('Loading plWordNet source.')
-    source, from_cache = wnutils.cached(conf.results('cache_pl.pkl'), PLWordNet, [session])
-
-    # Uncached: 17.885 sec., cached: 1.325 sec.
-    logger.info('Loading PWN target.')
-    target, from_cache = wnutils.cached(conf.results('cache_en.pkl'), PWordNet)
+    source = stats.source
+    target = stats.target
+    constr = config.constraints
 
     # config = Config()
     # status = Status()

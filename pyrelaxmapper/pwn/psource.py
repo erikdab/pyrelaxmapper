@@ -21,11 +21,11 @@ class PWordNet(wnsource.RLWordNet):
     def synset(self, id_):
         return self._synsets[id_]
 
-    def synsets(self, lemma, pos=None):
-        pass
+    def synsets(self, lemma, pos='n'):
+        return [PSynset(self, synset) for synset in wn.synsets(lemma, pos)]
 
     def synsets_all(self):
-        return self._synsets
+        return self._synsets.values()
 
     # Should take into account pos we want to load.
     # Should hash and then put into dictionary.

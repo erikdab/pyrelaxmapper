@@ -1,33 +1,12 @@
 # -*- coding: utf-8 -*-
-import os
 import logging
+import os
 import pickle
-
-from nltk.corpus import wordnet as pwn
+import re
 
 import conf
 
 logger = logging.getLogger()
-
-
-def hiper(synset):
-    """Count hipernyms for the synset.
-
-    Parameters
-    ----------
-    synset : pyrelaxmapper.rlabel.rlsource.RLSynset
-        Synset
-    """
-    do_now = [synset]
-    hipernyms = []
-    while do_now:
-        do_next = []
-        for node in do_now:
-            do_next.extend(node.hypernyms())
-        do_now = do_next
-        hipernyms.extend(do_next)
-    parent = hipernyms[0] if hipernyms else 0
-    return hipernyms, parent
 
 
 def hipo(synset):
@@ -76,29 +55,6 @@ def hiper_path(synset):
     return hipernyms, parent
 
 
-def _hip_pl(node, hip):
-    """Direct hiponyms/hipernyms for plWN node."""
-    return [node_hip for node_hip in hip[node]] if node in hip else []
-
-
-def _hipo_en(node):
-    """Direct hiponyms for PWN node:"""
-    return [hypo_node.name() for hypo_node in pwn.synset(node).hyponyms()]
-
-
-def _hiper_en(synset):
-    """Find hipernyms for PWN synset."""
-    parent = []
-    hipernyms = pwn.synset(synset).hypernym_paths()
-
-    # TODO: For now only clear paths are used.
-    if len(hipernyms) == 1:
-        # Proper direction (synset -> hiper -> hiper of hiper). Don't take synset.
-        hipernyms = [hiper.name() for hiper in hipernyms[0]][1::-1]
-        parent = hipernyms[0]
-    return hipernyms, parent
-
-
 def cached(filename, func, args=None, info=None):
     """Load from cache file or create and save to cached file.
 
@@ -124,10 +80,15 @@ def cached(filename, func, args=None, info=None):
 
     filename = conf.cache(filename)
 
+    loaded = False
     if os.path.exists(filename):
-        logger.info('Loading {} from cache.'.format(func.__name__))
-        source = load_obj(filename)
-    else:
+        logger.info('Loading {} from cache.'.format(func.__name__, filename))
+        try:
+            source = load_obj(filename)
+            loaded = True
+        except ModuleNotFoundError as e:
+            logger.debug('Cache loading error "{}". File: {}.'.format(e, filename))
+    if not loaded:
         logger.info('Loading {} live.'.format(func.__name__))
         source = func(*args)
         save_obj(source, filename)
@@ -143,3 +104,40 @@ def save_obj(obj, name):
 def load_obj(name):
     with open(name, 'rb') as f:
         return pickle.load(f)
+
+
+def clean(term, spaces=False):
+    rep = {'(': '', ')': '', 'the ': '', '/': ''}
+    if spaces:
+        rep[' '] = '_'
+    return multi_replace(term.strip().lower(), rep).strip()
+
+
+def multi_replace(text, replacements, ignore_case=False):
+    """
+    Given a string and a dict, replaces occurrences of the dict keys found in the
+    string, with their corresponding values. The replacements will occur in "one pass",
+    i.e. there should be no clashes.
+
+    Parameters
+    ----------
+    text : str
+        string to perform replacements on
+    replacements : dict
+        replacement dictionary {str_to_find: str_to_replace_with}
+    ignore_case : bool
+        whether to ignore case when looking for matches
+
+    Returns
+    -------
+    str
+        str the replaced string
+    """
+    # Sort by length so that the shorter strings don't replace the longer ones.
+    rep_sorted = sorted(replacements, key=lambda s: len(s[0]), reverse=True)
+
+    rep_escaped = [re.escape(replacement) for replacement in rep_sorted]
+
+    pattern = re.compile("|".join(rep_escaped), re.I if ignore_case else 0)
+
+    return pattern.sub(lambda match: replacements[match.group(0)], text)

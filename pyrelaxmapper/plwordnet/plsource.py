@@ -12,8 +12,11 @@ class PLWordNet(wnsource.RLWordNet):
     POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4,
            'v_en': 5, 'n_en': 6, 'r_en': 7, 'a_en': 8}
 
-    def __init__(self, session=None):
+    def __init__(self, session=None, pos=None):
+        if pos is None:
+            pos = ['2']
         self._version = ''
+        self._pos = pos
         self._synsets = {}
         self._lunits = {}
         self._reltypes = {}
@@ -65,7 +68,7 @@ class PLWordNet(wnsource.RLWordNet):
             return
 
         if not self._lunits:
-            pos = [self.POS['n'], self.POS['n_en']]
+            pos = self._pos
             # Lexical Units
             lunits = queries.lunits(session, pos)
             self._lunits = {}
@@ -164,7 +167,7 @@ class PLSynset(wnsource.RLSynset):
         return self._lunits
 
     def lemma_names(self):
-        return [lunit.name() for lunit in self._lunits]
+        return [lunit.name() for lunit in self._lunits.values()]
 
     def hypernyms(self):
         return self._plwordnet.hypernyms(self._id)

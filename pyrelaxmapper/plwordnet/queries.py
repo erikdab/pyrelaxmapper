@@ -34,7 +34,7 @@ def relationtypes_pwn_plwn(session):
             .filter(~ RelationType.shortcut.in_(['po_pa', 'po_ap'])))
 
 
-def pwn_mappings(session):
+def pwn_mappings(session, pos=None):
     """Query plWN for already mapped synsets between plWN and PWN.
 
     Selects: polish synset id, english synset unitsstr, POS
@@ -47,21 +47,31 @@ def pwn_mappings(session):
     ----------
     session : orm.session.Session
     """
+    if not pos:
+        pos = [6]
     rel_types = relationtypes_pwn_plwn(session)
 
     syns_en = orm.aliased(Synset)
-    return (session.query(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
+    uas_pl = orm.aliased(UnitSynset)
+    lunit_pl = orm.aliased(LexicalUnit)
+    # return (session.query(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
+    return (session.query(Synset.id_)
             .join(SynsetRelation, Synset.id_ == SynsetRelation.parent_id)
             .join(syns_en, SynsetRelation.child_id == syns_en.id_)
 
             .join(UnitSynset, syns_en.id_ == UnitSynset.syn_id)
             .join(LexicalUnit, UnitSynset.lex_id == LexicalUnit.id_)
 
+            .join(uas_pl, Synset.id_ == uas_pl.syn_id)
+            .join(lunit_pl, uas_pl.lex_id == lunit_pl.id_)
+
             .join(RelationType, SynsetRelation.rel_id == RelationType.id_)
             .filter(RelationType.id_.in_(rel_types))
-            .filter(LexicalUnit.pos > 4)
+            .filter(LexicalUnit.pos.in_(['6']))
+            .filter(lunit_pl.pos.in_(['2']))
             # Before wasn't grouped!
-            .group_by(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
+            # .group_by(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
+            .group_by(Synset.id_)
             .order_by(Synset.id_)
             )
 
