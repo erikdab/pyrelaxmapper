@@ -2,7 +2,7 @@
 """Relaxation labeling Configuration."""
 
 
-class RLConfig:
+class WNConfig:
     """Relaxation Labeling Configuration."""
 
     def __init__(self):

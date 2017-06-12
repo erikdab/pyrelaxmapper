@@ -149,39 +149,6 @@ def load_conf_db(file):
     return settings
 
 
-def load_dicts(directory):
-    """Loads dicts index and creates dict file paths.
-
-    Parameters
-    ----------
-    directory : string
-        Directory containing dictionaries to cascade together.
-
-        Structure:
-          index.txt     # Dictionaries names (dir names) to load
-          */dict.txt    # Translations for each dictionary
-
-        'index.txt'   format: comma-separated ordered list, example:
-            "dicts_dir1,dicts_dir3,dicts_dir2"
-        'dict.txt'    format: tab-delimited translations, example:
-            "term1\ttranslation1
-             term2\ttranslation2"
-
-    Returns
-    -------
-    tuple
-        (list of dict names, list of dict absolute paths)
-    """
-    filename = os.path.join(directory, 'index.txt')
-    if not os.path.exists(filename):
-        logger.error('index.txt is missing in path: {0}. '.format(directory))
-        return []
-    with open(filename, 'r') as file:
-        names = file.read().strip().split(',')
-        index = [os.path.join(directory, name, 'dict.txt') for name in names]
-    return names, index
-
-
 def yield_lines(filenames):
     """Yield all lines from files.
 
