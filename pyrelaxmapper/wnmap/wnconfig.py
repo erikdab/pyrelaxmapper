@@ -3,9 +3,22 @@
 
 
 class WNConfig:
-    """Relaxation Labeling Configuration."""
+    """Relaxation Labeling Configuration.
+
+    * Source, Target
+    * Translator
+    * Clean function
+    * Inserter (inserts mapping results somewhere)
+    * POS
+    * empties (empty synsets?)
+    * include monosemous?
+    * graph directory
+    * Constraints, constraint weights
+    * Should be possible to change most settings here, instead of creating a Python file.
+    """
 
     def __init__(self):
+        self.constrains = 'ii'
         pass
 
     def open(self):

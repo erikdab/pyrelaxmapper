@@ -9,7 +9,7 @@ import numpy as np
 # from pyrelaxmapper.plwordnet import queries
 # from pyrelaxmapper.pwn.psource import PWordNet
 # from pyrelaxmapper.wnmap import wnutils, wndict
-from pyrelaxmapper.wnmap.stats import Statistics, Mapping
+from pyrelaxmapper.wnmap.stats import Mapping
 
 logger = logging.getLogger()
 

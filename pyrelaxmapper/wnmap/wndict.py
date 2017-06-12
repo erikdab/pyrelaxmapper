@@ -7,8 +7,8 @@ from xml.etree.ElementTree import ElementTree
 import conf
 from plwordnet import queries
 from plwordnet.plsource import PLLexicalUnit
-from pyrelaxmapper import utils
-from wnmap import wnutils
+from pyrelaxmapper.wnmap import wnutils
+from nltk.corpus import wordnet as wn
 
 logger = logging.getLogger()
 
@@ -30,11 +30,18 @@ class Dictionary:
     def __repr__(self):
         return "{}('{}')".format(type(self).__name__, self.name())
 
+    def size(self):
+        return len(self.dict_)
+
     @staticmethod
     def clean_trans(terms):
         terms_ = [wnutils.clean(term) for term in terms]
         filtered = list(filter(None, terms_))
-        return filtered if terms_[0] and len(filtered) >= 2 else ['', '']
+        if not terms_[0] or len(filtered) < 2:
+            return ['', '']
+        morphy = [wn.morphy(term, wn.NOUN) for term in filtered[1:]]
+        filtered += [morph for morph in morphy if morph not in filtered and morph]
+        return filtered
 
     def add_terms(self, terms):
         terms_ = self.clean_trans(terms)
@@ -56,20 +63,45 @@ class PiotrSaloni(Dictionary):
 
 
 class CascadingDict(Dictionary):
+    """Cascading Dict Dictionary
+    Parameters
+    ----------
+    directory : string
+        Directory containing dictionaries to cascade together.
+
+        Structure:
+          index.txt     # Dictionaries names (dir names) to load
+          */dict.txt    # Translations for each dictionary
+
+        'index.txt'   format: comma-separated ordered list, example:
+            "dicts_dir1,dicts_dir3,dicts_dir2"
+        'dict.txt'    format: tab-delimited translations, example:
+            "term1\ttranslation1
+             term2\ttranslation2"
+    """
+
     def __init__(self, directory):
         super().__init__()
         self.name_ = 'Cascading Dicts'
         self.load(directory)
 
     def load(self, directory):
-        __, index = conf.load_dicts(directory)
+        filename = os.path.join(directory, 'index.txt')
+        if not os.path.exists(filename):
+            logger.error('index.txt is missing in path: {0}. '.format(directory))
+            return
+        with open(filename, 'r') as file:
+            names = file.read().strip().split(',')
+            index = [os.path.join(directory, name, 'dict.txt') for name in names]
         if not index:
             return
-        i = 0
         for line in conf.yield_lines(index):
             self.add_terms(line.split('\t'))
 
 
+# Could use Morphy?
+# Could cache ony translated/not_translated?
+# Lower case looses information!
 class Translater:
     """Searches for translations for source lexical unit.
 
@@ -77,15 +109,16 @@ class Translater:
     ----------
     dicts : list of Dictionary
     """
-    def __init__(self, dicts):
-        self.dicts = dicts
+    def __init__(self):
+        # self.dicts = dicts
         # Count how many translations were found using dict.
-        self.dicts_count = [0] * len(dicts)
+        self.dicts_size = [0]
+        self.dicts_count = [0]
         self.translated = {}
         self.not_translated = set()
 
     # Could also just receive just lemmas
-    def translate(self, lemmas):
+    def build(self, dicts, lemmas):
         """
 
         Parameters
@@ -97,11 +130,13 @@ class Translater:
         tuple
             Tuple containing translated and not translated lexical units.
         """
+        self.dicts_size = [dict.size() for dict in dicts]
+        self.dicts_count = [0] * len(dicts)
         for lemma in lemmas:
             if lemma in self.translated or lemma in self.not_translated:
                 continue
             cleaned = wnutils.clean(lemma)
-            for dict_id, dict_ in enumerate(self.dicts):
+            for dict_id, dict_ in enumerate(dicts):
                 dict_trans = dict_.search(cleaned)
                 if dict_trans:
                     self.translated.setdefault(lemma, set()).update(dict_trans)
@@ -111,21 +146,39 @@ class Translater:
 
         return self.translated, self.not_translated
 
+    # Searches in built translations.
+    def translate(self, lemmas):
+        translations = set()
+        for lemma in lemmas:
+            translations.update(self.translated[lemma] if lemma in self.translated else [])
+        return translations
+
 
 def translate():
     """Translate Polish Lexical Units to English."""
     # no spaces     spaces
     # 644361        654061
     cd = wnutils.cached('cascading_dict', CascadingDict, args=conf.data('dicts'))
+    # cd2 = wnutils.cached('cascading_dict2', CascadingDict, args=conf.data('dicts'))
     # 597655        597654
     ps = wnutils.cached('piotr_saloni', PiotrSaloni, args=conf.data('PL-ANG'))
-    trans = Translater([cd, ps])
+    # ps2 = wnutils.cached('piotr_saloni2', PiotrSaloni, args=conf.data('PL-ANG'))
+    trans = Translater()
 
+    # ete = {}
+    # for k, t, t2 in zip(cd.dict_.keys(), cd.dict_.values(), cd2.dict_.values()):
+    #     if t != t2:
+    #         ete[k] = '{} {}'.format(t, t2)
+    # ete2 = {}
+    # for k, t, t2 in zip(ps.dict_.keys(), ps.dict_.values(), ps2.dict_.values()):
+    #     if t != t2:
+    #         ete2[k] = '{} {}'.format(t, t2)
     lunits = {}
     for lunit in queries.lunits(conf.make_session(), [2]):
         lunits[lunit.lemma] = PLLexicalUnit(lunit.id_, lunit.lemma, lunit.pos)
     lemmas = [lunit.name() for lunit in lunits.values()]
 
+    # Morphy: cd: 1439 ps: 1786
     # Old:
     # 73380, 252578
     # 39412, 213659
@@ -134,7 +187,7 @@ def translate():
     # [54828, 54994]
     # Dicts:[44296, 55678] Total:57168 of 128213
     # Could measure how much each one gave us..
-    trans.translate(lemmas)
+    trans.build([cd, ps], lemmas)
     total = len(trans.translated) + len(trans.not_translated)
     logger.info('Dicts:{} Total:{} of {}'.format(trans.dicts_count, len(trans.translated), total))
-    return trans.translated
+    return trans
