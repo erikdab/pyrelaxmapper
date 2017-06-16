@@ -24,29 +24,28 @@ def search_paths():
             click.get_app_dir(APPLICATION)]
 
 
+def file_in_dir(directory, filename):
+    """File in directory."""
+    output = os.path.join(os.path.expanduser(directory), os.path.dirname(filename))
+    if not os.path.exists(output):
+        os.makedirs(output)
+    return os.path.abspath(os.path.join(output, os.path.basename(filename)))
+
+
 # TODO: Temporary. Think of something better? :D
 def results(filename):
     """Get absolute filename of new data file."""
-    output = os.path.expanduser(config['path']['output'])
-    if not os.path.exists(output):
-        os.makedirs(output)
-    return os.path.abspath(os.path.join(output, filename))
+    return file_in_dir(config['path']['output'], filename)
 
 
 def cache(filename):
     """Get absolute filename of new data file."""
-    output = os.path.join(os.path.expanduser(config['path']['output']), 'cache')
-    if not os.path.exists(output):
-        os.makedirs(output)
-    return os.path.abspath(os.path.join(output, filename))
+    return file_in_dir(config['path']['output'], os.path.join('cache', filename))
 
 
 def data(filename):
     """Get absolute filename of new data file."""
-    output = os.path.expanduser(config['path']['data'])
-    if not os.path.exists(output):
-        os.makedirs(output)
-    return os.path.abspath(os.path.join(output, filename))
+    return file_in_dir(config['path']['data'], filename)
 
 
 def make_session(db_name='db-default'):

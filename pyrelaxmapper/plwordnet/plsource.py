@@ -25,6 +25,17 @@ class PLWordNet(wnsource.RLWordNet):
         self._hyponyms = {}
         self._load_data(session)
 
+    @staticmethod
+    def name():
+        return 'plWordNet'
+
+    @staticmethod
+    def name_short():
+        return 'plWN'
+
+    def lang(self):
+        return 'pl-pl'
+
     def version(self):
         return self._version
 
@@ -149,7 +160,7 @@ class PLSynset(wnsource.RLSynset):
     plwordnet : PLWordNet
     id_ : int
         Unique identifier
-    lunits: list
+    lunits: dict
         Lexical units
     """
     def __init__(self, plwordnet, id_, lunits):
@@ -164,7 +175,7 @@ class PLSynset(wnsource.RLSynset):
         return self._id
 
     def lemmas(self):
-        return self._lunits
+        return self._lunits.values()
 
     def lemma_names(self):
         return [lunit.name() for lunit in self._lunits.values()]

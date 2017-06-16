@@ -99,7 +99,6 @@ def _write_results(weights, current_syn, avg_weight, mapped_count, candidates, n
     mapped_count = mapped_count + 1
 
 
-# Status, Config
 def two(stats, config):
     """Relaxation labeling iterations"""
     step2 = open(conf.results('step2.txt'), 'w', encoding='utf-8')
@@ -110,10 +109,6 @@ def two(stats, config):
     source = stats.source
     target = stats.target
     constr = config.constraints
-
-    # config = Config()
-    # status = Status()
-    # relaxer = Relaxer()
 
     # This kind of info should be inside a class!
     # line_nr = 0
