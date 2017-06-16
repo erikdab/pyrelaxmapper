@@ -8,6 +8,8 @@ class WNConfig:
     * Source, Target
     * Translator
     * Clean function
+    * Keep only caches needed for model selection.
+    * Keep caches only in temporary folder (dropped on system reboot)
     * Inserter (inserts mapping results somewhere)
     * POS
     * empties (empty synsets?)
@@ -19,7 +21,16 @@ class WNConfig:
 
     def __init__(self):
         self.constrains = 'ii'
+        # self.cache = True
+        self._pos = ['n']
+        self._dataset_split = 0.8
         pass
+
+    def pos(self):
+        return self._pos
+
+    def dataset_split(self):
+        return self._dataset_split
 
     def open(self):
         pass

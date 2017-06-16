@@ -18,12 +18,41 @@ class RLWordNet:
         format = "{}({})" if isinstance(self.version(), int) else "{}('{}')"
         return format.format(type(self).__name__, self.version())
 
+    @staticmethod
+    def name():
+        """RL Source name.
+
+        Returns
+        -------
+        str
+        """
+        pass
+
+    @staticmethod
+    def name_short():
+        """RL Source short name.
+
+        Returns
+        -------
+        str
+        """
+        pass
+
+    def lang(self):
+        """RL Source language.
+
+        Returns
+        -------
+        str
+        """
+        pass
+
     def version(self):
         """RL Source version (any format).
 
         Returns
         -------
-        string
+        str
         """
         pass
 
@@ -53,12 +82,24 @@ class RLWordNet:
 
         Returns
         -------
-        synsets: list of RLSynset
+        synsets: list of pyrelaxmapper.wnmap.wnsource.RLSynset
         """
         pass
 
-    def mappings(self):
-        """Existing mappings"""
+    def all_hypernyms(self):
+        pass
+
+    def all_hyponyms(self):
+        pass
+
+    def mappings(self, target_wn):
+        """Existing mappings
+
+        Parameters
+        ----------
+        target_wn : str
+            Name of target WordNet to look for existing mappings to.
+        """
         pass
 
     def pos(self):
@@ -79,6 +120,9 @@ class RLWordNet:
         """
         pass
 
+    def empties(self):
+        pass
+
 
 class RLSynset:
     """RL Source Synset interface."""
@@ -95,7 +139,8 @@ class RLSynset:
         """
         pass
 
-    def name(self):
+    @staticmethod
+    def name():
         """Name.
 
         Returns

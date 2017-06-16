@@ -133,11 +133,11 @@ class Translater:
         self.dicts_size = [dict.size() for dict in dicts]
         self.dicts_count = [0] * len(dicts)
         for lemma in lemmas:
+            lemma = wnutils.clean(lemma)
             if lemma in self.translated or lemma in self.not_translated:
                 continue
-            cleaned = wnutils.clean(lemma)
             for dict_id, dict_ in enumerate(dicts):
-                dict_trans = dict_.search(cleaned)
+                dict_trans = dict_.search(lemma)
                 if dict_trans:
                     self.translated.setdefault(lemma, set()).update(dict_trans)
                     self.dicts_count[dict_id] += 1
@@ -146,22 +146,19 @@ class Translater:
 
         return self.translated, self.not_translated
 
-    # Searches in built translations.
-    def translate(self, lemmas):
-        translations = set()
-        for lemma in lemmas:
-            translations.update(self.translated[lemma] if lemma in self.translated else [])
-        return translations
 
-
+# Should try to accumulate the dicts if possible. Don't create unneccessary burden.
+# Just put the translation into one class and load it all inside main to all for specifying
+# different dictionaries, etc.
 def translate():
     """Translate Polish Lexical Units to English."""
+    group = 'Dicts'
     # no spaces     spaces
     # 644361        654061
-    cd = wnutils.cached('cascading_dict', CascadingDict, args=conf.data('dicts'))
+    cd = wnutils.cached('Cascading Dicts', CascadingDict, args=conf.data('dicts'), group=group)
     # cd2 = wnutils.cached('cascading_dict2', CascadingDict, args=conf.data('dicts'))
     # 597655        597654
-    ps = wnutils.cached('piotr_saloni', PiotrSaloni, args=conf.data('PL-ANG'))
+    ps = wnutils.cached('Piotr Saloni', PiotrSaloni, args=conf.data('PL-ANG'), group=group)
     # ps2 = wnutils.cached('piotr_saloni2', PiotrSaloni, args=conf.data('PL-ANG'))
     trans = Translater()
 
@@ -172,6 +169,7 @@ def translate():
     # ete2 = {}
     # for k, t, t2 in zip(ps.dict_.keys(), ps.dict_.values(), ps2.dict_.values()):
     #     if t != t2:
+
     #         ete2[k] = '{} {}'.format(t, t2)
     lunits = {}
     for lunit in queries.lunits(conf.make_session(), [2]):
@@ -186,6 +184,10 @@ def translate():
     # 57423/127354
     # [54828, 54994]
     # Dicts:[44296, 55678] Total:57168 of 128213
+    # Dicts:[55531, 55720] Total:58158 of 128213
+    # Clearly we DON'T WANT TO clean, because we lose data \/. Use it as test though.
+    # NEED TO USE UNIFORM! Clean same way everywhere.
+    # Dicts:[54848, 55013] Total:57443 of 127310
     # Could measure how much each one gave us..
     trans.build([cd, ps], lemmas)
     total = len(trans.translated) + len(trans.not_translated)

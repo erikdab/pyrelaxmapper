@@ -10,6 +10,7 @@ class Mapping:
     """RL Mapping class between a source and target unit.
 
     """
+
     # class Method(Enum):
     #     """Mapping condition used."""
     #     dict = auto()
@@ -29,6 +30,7 @@ class Mapping:
 
 class Iteration:
     """Status of Relaxation Labeling algorithm."""
+
     def __init__(self, statistics, name=None):
         self._statistics = statistics
         # Dict with source id as key
@@ -81,16 +83,32 @@ class Iteration:
 
 class Statistics:
     """Status of Relaxation Labeling algorithm."""
-    def __init__(self, wnsource, wntarget, to_map, dictionary=None):
+
+    def __init__(self, wnsource, wntarget):
         self.wnsource = wnsource
         self.wntarget = wntarget
-        self.dictionary = dictionary
         self.iterations = [Iteration(self)]
-        self.to_map = to_map
+        self.dictionary = None
+        self.monosemous = None
+        self.polysemous = None
         # Only one translation found. Doesn't change with iterations.
         self.one_translation = {}
         # Dict with source id as key
+        # List of lemmas with no translation
+        # List of synsets with no candidates
         self.no_translations = set()
+        # nNodes
+        # nLabels
+        # maxLabelsPerNode
+        # nConnections
+        # nTrans = nMulTrans = nNoTrans
+        # nRelax
+        # nCompleted
+        # nStable
+        # nConnectionsPerType
+        # Create CSV Report! or even XLSX! (or ODF)
+        # CSV is built into Python, XLSX openpyxl,
+        # Create graphs.
 
     def push_iteration(self, name=None):
         iter = self.iteration().copy(name)
@@ -113,6 +131,19 @@ class Statistics:
 
     def iteration(self):
         return self.iterations[-1]
+
+    def coverage(self):
+        pass
+        # manual_count = sum(1 for synset in manual if synset.id_() in candidates)
+        # manual_coverage = manual_count / len(manual)
+        # full_len = len(source_wn.synsets_all())
+        # full_coverage = len(candidates) / full_len
+        # logger.info(
+        # 'Manual coverage: {}/{}: {:.2f}%'.format(
+        #     manual_count, len(manual), 100 * manual_coverage))
+        # logger.info(
+        #     'Full coverage: {}/{}: {:.2f}%'.format(
+        # len(candidates), full_len, 100 * full_coverage))
 
     def wordnet_info(self):
         logger.info('Translations, count: {}'.format(len(self.dictionary)))

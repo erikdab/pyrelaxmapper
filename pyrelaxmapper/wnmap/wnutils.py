@@ -9,6 +9,7 @@ import conf
 logger = logging.getLogger()
 
 
+# Could be placed inside rlsource!
 def hipo(synset):
     """Find hiponyms for synset.
 
@@ -55,13 +56,13 @@ def hiper_path(synset):
     return hipernyms, parent
 
 
-def cached(filename, func, args=None, info=None):
+def cached(name, func, args=None, info=None, group=None):
     """Load from cache file or create and save to cached file.
 
     Parameters
     ----------
-    filename
-        file to load/save cache
+    name
+        Name of cache file
     func
         Can be function, or class
     args
@@ -71,29 +72,32 @@ def cached(filename, func, args=None, info=None):
     """
     if args is None:
         args = []
-
-    if not isinstance(args, list):
+    elif not isinstance(args, list):
         args = [args]
+
+    filename = conf.cache(name if not group else os.path.join(group, name))
 
     if '.pkl' not in filename:
         filename += '.pkl'
 
-    filename = conf.cache(filename)
+    group_name = '{}/{}'.format(group, name) if group else name
+    source = 'from cache' if os.path.exists(filename) else 'live'
+    logger.info('Loading "{}" {}.'.format(group_name, source))
 
-    loaded = False
-    if os.path.exists(filename):
-        logger.info('Loading {} from cache.'.format(func.__name__, filename))
+    data = None
+    if source == 'from cache':
         try:
-            source = load_obj(filename)
-            loaded = True
+            data = load_obj(filename)
         except ModuleNotFoundError as e:
             logger.debug('Cache loading error "{}". File: {}.'.format(e, filename))
-    if not loaded:
-        logger.info('Loading {} live.'.format(func.__name__))
-        source = func(*args)
-        save_obj(source, filename)
-    logger.info('Loaded {}.'.format(func.__name__))
-    return source
+    if not data:
+        data = func(*args)
+        save_obj(data, filename)
+
+    # Also: Object generation function may have their own caches!
+    # WHY? For time measurement. We know exactly how long it took!
+    logger.info('Loaded "{}".'.format(group_name))
+    return data
 
 
 def save_obj(obj, name):
@@ -106,10 +110,11 @@ def load_obj(name):
         return pickle.load(f)
 
 
+# Should handle terms which are ONLY Symbols!
 def clean(term, spaces=False):
-    rep = {'(': '', ')': '', 'the ': '', '/': ''}
-    if spaces:
-        rep[' '] = '_'
+    rep = {'(': '', ')': '', 'the ': '', '/': '', ' ': '_', '-': '_', ',': ''}
+    # if spaces:
+    #     rep[' '] = '_'
     return multi_replace(term.strip().lower(), rep).strip()
 
 

@@ -4,12 +4,9 @@ import os
 
 import click
 
-# from pyrelaxmapper.wnmap import poly, mono
 from pyrelaxmapper import conf
-# import pyrelaxmapper.plwordnet.queries as plquery
-# import pyrelaxmapper.plwordnet.files as plfile
 from pyrelaxmapper.plwordnet.plsource import PLWordNet
-from wnmap import wndict
+from pyrelaxmapper.wnmap import wndict, main
 
 
 def db_info():
@@ -44,6 +41,9 @@ def db_info():
     # click.echo('PL Wordnet DB version: {}'.format(plwordnet.synsets_all()))
 
 
+# Create a mapping config creator?
+# Specify source, target (out of the supported ones + versions), constraints, etc. etc.
+# When no config specified, and none existing, check if built in works, else ask to create.
 def list_config():
     """List application configuration."""
     click.secho(conf.search_paths.__doc__, fg='blue')
@@ -107,7 +107,7 @@ def make_clean():
 def make_mono():
     """Create monosemous mappings between plWN and PWN."""
     click.secho('Running monosemous mapping.', fg='blue')
-    # mono.mono()
+    main.main()
     click.secho('Done monosemous mapping.', fg='blue')
 
 
