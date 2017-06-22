@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
 
-import conf
-from plwordnet import files
-from pyrelaxmapper.plwordnet import queries
-from pyrelaxmapper.wnmap import wnsource
+from pyrelaxmapper import wnsource, conf
+from pyrelaxmapper.plwordnet import queries, files
 
 
 class PLWordNet(wnsource.WordNet):

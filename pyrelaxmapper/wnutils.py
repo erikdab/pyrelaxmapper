@@ -4,7 +4,7 @@ import os
 import pickle
 import re
 
-import conf
+from pyrelaxmapper import conf
 
 logger = logging.getLogger()
 

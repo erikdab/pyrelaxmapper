@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from nltk.corpus import wordnet as wn
 
-from pyrelaxmapper.wnmap import wnsource
+from pyrelaxmapper import wnsource
 
 
 class PWordNet(wnsource.WordNet):
