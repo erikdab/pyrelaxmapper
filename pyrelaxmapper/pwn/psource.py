@@ -4,75 +4,87 @@ from nltk.corpus import wordnet as wn
 from pyrelaxmapper.wnmap import wnsource
 
 
-# SHOULD create an NLTK and SQL PWN source!
-class PWordNet(wnsource.RLWordNet):
-    """WordNet WordNet interface."""
-    POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4}
+class PWordNet(wnsource.WordNet):
+    """WordNet WordNet interface for the NTLK version of PWN.
 
-    def __init__(self):
-        # self._config = config
-        self._version = None
+    Parameters
+    ----------
+    parser " configparser.ConfigParser
+        Config Parser with plWordNet config.
+    section : str, optional
+        Section inside parser which contains PWN config.
+        Default selects the [source] section.
+    """
+    def __init__(self, parser, section='source'):
+        self._config = self.Config(parser, section)
+        self._version = ''
+
         self._synsets = None
+
         self._load_data()
 
+    class Config:
+        """PWN WordNet configuration.
+
+        Parameters
+        ----------
+        parser : configparser.ConfigParser
+        section : str, optional
+            Section inside parser which contains PWN config.
+            Default selects the [source] section.
+        """
+        def __init__(self, parser, section='source'):
+            self.db_file = parser[section]['db-file']
+            self.pos = parser['relaxer']['pos']
+
+    POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4}
+
     @staticmethod
-    def name():
+    def name_full():
         return 'WordNet'
 
     @staticmethod
-    def name_short():
+    def name():
         return 'PWN'
 
     def lang(self):
         return 'en-us'
 
     def version(self):
-        return self._version
+        return '{} {}'.format(self.name(), self._version)
 
     def synset(self, id_):
         return self._synsets[id_]
 
-    # Uses morphy, etc.
     def synsets(self, lemma, pos='n'):
         return [PSynset(self, synset) for synset in wn.synsets(lemma, pos)]
 
-    def synsets_all(self):
+    def all_synsets(self):
         return self._synsets.values()
 
-    # Should take into account pos we want to load.
-    # Should hash and then put into dictionary.
-    # Should return Synset object which is an adapter to the plWN DB Synset
-    # Eventually SHOULD USE load as Models with their mappings! encapsulated in PObjects
+    def all_hypernyms(self):
+        return ((synset.offset(), synset.hypernyms()) for synset in self._synsets)
+
+    def all_hyponyms(self):
+        return ((synset.offset(), synset.hyponyms()) for synset in self._synsets)
+
     def _load_data(self):
-        """Ensure dataset from names are loaded.
-
-        Parameters
-        ----------
-        names
-            Dataset names to load if not yet loaded.
-            'all' to load all
-        """
+        """Load PWN data from NLTK."""
         if not self._synsets:
-            pos = 'n'
-            self._synsets = {}
-            # i = 0
-            for synset in wn.all_synsets(pos):
-                self._synsets[synset.offset()] = PSynset(self, synset)
-                # if i > 0 and i % 300 == 0:
-                #     break
-                # i += 1
+            self._synsets = {synset.offset(): PSynset(self, synset)
+                             for synset in wn.all_synsets(self._config.pos)}
 
-            # TODO: Pickling error? Too much recursion
-            # Maybe restore links after loading from pickle?
-            # Update hyper/hipo references
-            # for synset in self._synsets.values():
-            #     synset.update_rels(self)
+            for synset in self._synsets.values():
+                synset.update_rels()
+
+        if not self._pos:
+            self._pos = {'n': wn.NOUN, 'v': wn.VERB, 'r': wn.ADV, 'a': wn.ADJ}
 
         if not self._version:
-            self._version = 'PWN {}'.format(wn.get_version())
+            self._version = wn.get_version()
 
 
-class PSynset(wnsource.RLSynset):
+class PSynset(wnsource.Synset):
     """WordNet Synset interface.
 
     Parameters
@@ -90,15 +102,14 @@ class PSynset(wnsource.RLSynset):
         # nltk.lexname() 'noun.animal'!!
         self._lemmas = []
         for lemma in nltk_synset.lemmas():
-            self._lemmas.append(PLexicalUnit(self, lemma.name()))
+            self._lemmas.append(PLemma(lemma, self, lemma.name()))
         self._hypernyms = [syn.offset() for syn in nltk_synset.hypernyms()]
         self._hypernym_paths = []
         for path in nltk_synset.hypernym_paths():
             self._hypernym_paths.append([syn.offset() for syn in path])
         self._hyponyms = [syn.offset() for syn in nltk_synset.hyponyms()]
-        # self._hypernyms = []
-        # self._hypernym_paths = []
-        # self._hyponyms = []
+        self._antonyms = [antonym for lemma in self._lemmas
+                          for antonym in lemma.antonyms()]
 
     def id_(self):
         return self._id
@@ -106,23 +117,9 @@ class PSynset(wnsource.RLSynset):
     def name(self):
         return self._name
 
-    def update_rels(self, pwordnet):
+    def update_rels(self):
         """Update relation links (reference)."""
-        old = self._hypernyms
-        self._hypernyms = []
-        for hypernym in old:
-            self._hypernyms.append(pwordnet.synset(hypernym))
-        old = self._hyponyms
-        self._hyponyms = []
-        for hyponym in old:
-            self._hyponyms.append(pwordnet.synset(hyponym))
-        old = self._hypernym_paths
-        self._hypernym_paths = []
-        for hypernym_path in old:
-            path = []
-            for hypernym in hypernym_path:
-                path.append(pwordnet.synset(hypernym.name()))
-            self._hypernym_paths.append(path)
+        self._hyponym_layers = self.find_hyponym_layers()
 
     def lemmas(self):
         return self._lemmas
@@ -132,31 +129,32 @@ class PSynset(wnsource.RLSynset):
 
     def hypernyms(self):
         return [self._pwordnet.synset(hypernym) for hypernym in self._hypernyms]
-        # return self._hypernyms
 
     def hypernym_paths(self):
         path_ = []
         for path in self._hypernym_paths:
             path_.append([self._pwordnet.synset(hypernym) for hypernym in path])
         return path_
-        # return self._hypernym_paths
-
-    def min_depth(self):
-        pass
 
     def hyponyms(self):
         return [self._pwordnet.synset(hyponym) for hyponym in self._hyponyms]
-        # return self._hyponyms
+
+    def hyponym_layers(self):
+        return self._hyponym_layers
+
+    def antonyms(self):
+        return self._antonyms
 
     def pos(self):
         return self._pos
 
 
-class PLexicalUnit(wnsource.RLLexicalUnit):
+class PLemma(wnsource.Lemma):
     """PWN RL Source Lexical Unit.
 
     Parameters
     ----------
+    nltk_lemma : nltk.corpus.reader.wordnet.Lemma
     synset : PSynset
         Synset identifier
     lemma : str
@@ -164,10 +162,11 @@ class PLexicalUnit(wnsource.RLLexicalUnit):
     pos : int or str
         Lexical Unit pos
     """
-    def __init__(self, synset, lemma):
+    def __init__(self, nltk_lemma, synset, lemma):
         self._synset = synset
         self._id = '{}.{}'.format(synset.name(), lemma)
         self._lemma = lemma
+        self._antonyms = [antonym.name() for antonym in nltk_lemma.antonyms()]
 
     def synset(self):
         return self._synset
@@ -177,6 +176,9 @@ class PLexicalUnit(wnsource.RLLexicalUnit):
 
     def name(self):
         return self._lemma
+
+    def antonyms(self):
+        return self._antonyms
 
     def pos(self):
         return self._synset.pos()

@@ -48,9 +48,11 @@ def data(filename):
     return file_in_dir(config['path']['data'], filename)
 
 
-def make_session(db_name='db-default'):
+def make_session(db_name=None):
     """Make DB session."""
-    with open(os.path.expanduser(config['path'][db_name])) as file:
+    if not db_name:
+        db_name = config['path']['db-default']
+    with open(os.path.expanduser(db_name)) as file:
         settings = load_conf_db(file)
     engine = db.create_engine(settings)
     return db.session_start(engine)

@@ -6,7 +6,7 @@ import click
 
 from pyrelaxmapper import conf
 from pyrelaxmapper.plwordnet.plsource import PLWordNet
-from pyrelaxmapper.wnmap import wndict, main
+from pyrelaxmapper.wnmap import translate, main
 
 
 def db_info():
@@ -88,7 +88,7 @@ def make_extract():
 
 
 def make_translate():
-    wndict.translate()
+    translate.translate()
 
 
 def make_clean():

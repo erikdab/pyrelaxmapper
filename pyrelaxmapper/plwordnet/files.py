@@ -1,43 +1,44 @@
 # -*- coding: utf-8 -*-
-"""plWordNet file data set utilities."""
+"""plWordNet file utilities."""
 
 
 class Domain:
-    """Store domain information.
+    """Word sense domain.
 
     Properties
     ----------
-    id_ : int
+    uid : int
         Surrogate key
     name : str
         Domain name
     description : str
         Domain description
     """
-    def __init__(self, id_, name, description):
-        self.id_ = id_
+    def __init__(self, uid, name, description):
+        self.id_ = uid
         self.name = name
         self.description = description
 
 
 class POS:
-    """Store Part of Speech (POS) information.
+    """Part of Speech (POS).
 
     Properties
     ----------
-    id_ : int
+    uid : int
         Surrogate key
     name : str
         Short POS name
     fullname : str
         Full POS name (in polish)
-    domain_ids : list
-        List of domain ids to which POS may belong"""
-    def __init__(self, id_, name, fullname, domain_ids):
-        self.id_ = id_
+    domain_ids : list of int
+        List of domain ids to which POS may belong.
+    """
+    def __init__(self, uid, name, fullname, domain_ids):
+        self.uid = int(uid)
         self.name = name
         self.fullname = fullname
-        self.domain_ids = domain_ids
+        self.domain_ids = [int(domain_id) for domain_id in domain_ids]
 
 
 def load_header_file(file, header):
@@ -49,10 +50,13 @@ def load_header_file(file, header):
     ----------
     file : io.TextIOBase
         File to load data from
-    header : list
+    header : list of str
         List of header titles.
-    cls
-        Type of class to instantiate
+
+    Returns
+    -------
+    objects : list of list
+        List of objects (stored as a list consisting of columns)
     """
     titles = list(map(str.strip, file.readline().split('\t')))
     if titles != header:
@@ -66,14 +70,23 @@ def load_header_file(file, header):
     return objects
 
 
-# TODO: hoping for domains and POS to be included in the database!
 def load_domains(file):
-    """Load domains from file."""
+    """Load domains from file.
+
+    Returns
+    -------
+    domains : list of Domain
+    """
     domains = load_header_file(file, ['id', 'name', 'description'])
-    return domains
+    return [Domain(uid, name, description) for uid, name, description in domains]
 
 
 def load_pos(file):
-    """Load POS from file."""
+    """Load POS from file.
+
+    Returns
+    -------
+    pos : list of Pos
+    """
     pos = load_header_file(file, ['id', 'name', 'fullname', 'domain_ids'])
-    return pos
+    return [POS(uid, name, fullname, description) for uid, name, fullname, description in pos]
