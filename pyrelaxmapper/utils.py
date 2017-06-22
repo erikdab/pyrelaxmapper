@@ -4,59 +4,16 @@ import os
 import pickle
 import re
 
-from pyrelaxmapper import conf
+import sqlalchemy
+import sqlalchemy.engine.url
+import sqlalchemy.orm
+
+from pyrelaxmapper import config
 
 logger = logging.getLogger()
 
 
-# Could be placed inside rlsource!
-def hipo(synset):
-    """Find hiponyms for synset.
-
-    Parameters
-    ----------
-    synset : pyrelaxmapper.rlabel.rlsource.RLSynset
-        Synset
-    """
-    todo = [synset]
-    hiponyms = []
-    hipo_layers = []
-    while todo:
-        do_next = []
-        for node in todo:
-            do_next.extend(node.hyponyms())
-        todo = do_next
-        hiponyms.extend(todo)
-        if todo:
-            hipo_layers.append(todo)
-    children = hipo_layers[0] if hipo_layers else []
-    return hiponyms, hipo_layers, children
-
-
-def hiper_path(synset):
-    """Find hipernyms for PWN synset.
-
-    Parameters
-    ----------
-    synset : pyrelaxmapper.rlabel.rlsource.RLSynset
-        Synset
-    """
-    parent = []
-    hipernyms = []
-    hipernym_paths = synset.hypernym_paths()
-
-    # TODO: Currently algorithm only takes into account clear paths!!
-    if len(hipernym_paths) == 1:
-        hipernyms = [hipernym for hipernym in hipernym_paths[0]]
-        # element 0 is our synset, so we skip it.
-        # direction: from synset rather than to synset.
-        hipernyms = hipernyms[1::][::-1]
-
-        parent = hipernyms[0]
-    return hipernyms, parent
-
-
-def cached(name, func, args=None, info=None, group=None):
+def cached(name, func, args=None, group=None):
     """Load from cache file or create and save to cached file.
 
     Parameters
@@ -67,15 +24,13 @@ def cached(name, func, args=None, info=None, group=None):
         Can be function, or class
     args
         Args to pass to function / class
-    info
-        Info to print.
     """
     if args is None:
         args = []
     elif not isinstance(args, list):
         args = [args]
 
-    filename = conf.cache(name if not group else os.path.join(group, name))
+    filename = config.cache(name if not group else os.path.join(group, name))
 
     if '.pkl' not in filename:
         filename += '.pkl'
@@ -146,3 +101,21 @@ def multi_replace(text, replacements, ignore_case=False):
     pattern = re.compile("|".join(rep_escaped), re.I if ignore_case else 0)
 
     return pattern.sub(lambda match: replacements[match.group(0)], text)
+
+
+#######################################################################
+# Database utilities.
+
+def create_engine(settings):
+    """Create an UTF-8 SQLAlchemy engine from settings dict."""
+    if 'mysql' in settings['drivername']:
+        settings['query'] = {'charset': 'utf8mb4'}
+    url = sqlalchemy.engine.url.URL(**settings)
+    engine = sqlalchemy.create_engine(url, echo=False)
+    return engine
+
+
+def session_start(engine):
+    """Start an SQLAlchemy session."""
+    Session = sqlalchemy.orm.sessionmaker(bind=engine)
+    return Session()

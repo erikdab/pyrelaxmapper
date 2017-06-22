@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""WordNet source interface."""
+"""WordNet interface."""
 
 
 class WordNet:

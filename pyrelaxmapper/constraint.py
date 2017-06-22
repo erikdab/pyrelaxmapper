@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
 
-from pyrelaxmapper import wnutils
-
 logger = logging.getLogger()
 
 
@@ -166,6 +164,29 @@ class HyperHypoConstraint(Constraint):
         O - hypo
         B - both
     """
+    # Remove
+    def hipo(self, synset):
+        """Find hiponyms for synset.
+
+        Parameters
+        ----------
+        synset : pyrelaxmapper.rlabel.rlsource.RLSynset
+            Synset
+        """
+        todo = [synset]
+        hiponyms = []
+        hipo_layers = []
+        while todo:
+            do_next = []
+            for node in todo:
+                do_next.extend(node.hyponyms())
+            todo = do_next
+            hiponyms.extend(todo)
+            if todo:
+                hipo_layers.append(todo)
+        children = hipo_layers[0] if hipo_layers else []
+        return hiponyms, hipo_layers, children
+
     def apply(self, mapped, node):
         self.mapped = mapped
         constr = 'ii'
@@ -175,7 +196,7 @@ class HyperHypoConstraint(Constraint):
             hiper_pl = hiper_pl[0][::-1][1:]
         hiper_pl = [syn.id_() for syn in hiper_pl]
         fathers_pl = hiper_pl[0] if len(hiper_pl) >= 1 else -1
-        hipo_pl, hipo_pl_layers, children_pl = wnutils.hipo(source)
+        hipo_pl, hipo_pl_layers, children_pl = self.hipo(source)
         hipo_pl = [syn.id_() for syn in hipo_pl]
         hipo_pl_layers = [[syn.id_() for syn in layer] for layer in hipo_pl_layers]
         children_pl = [syn.id_() for syn in children_pl]
@@ -192,7 +213,7 @@ class HyperHypoConstraint(Constraint):
                 hiper_en = hiper_en[0][::-1][1:]
             hiper_en = [syn.id_() for syn in hiper_en]
             fathers_en = hiper_en[0] if len(hiper_en) >= 1 else -1
-            hipo_en, hipo_en_layers, children_en = wnutils.hipo(target_syn)
+            hipo_en, hipo_en_layers, children_en = self.hipo(target_syn)
             hipo_en = [syn.id_() for syn in hipo_en]
             hipo_en_layers = [[syn.id_() for syn in layer] for layer in hipo_en_layers]
             children_en = [syn.id_() for syn in children_en]

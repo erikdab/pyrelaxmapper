@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import os
 
-from pyrelaxmapper import wnsource, conf
-from pyrelaxmapper.plwordnet import queries, files
+import config
+from pyrelaxmapper import wordnet
+from pyrelaxmapper.plwn import queries, files
 
 
-class PLWordNet(wnsource.WordNet):
+class PLWordNet(wordnet.WordNet):
     """plWordNet WordNet for the MySQL plWN database.
 
     Parameters
@@ -82,7 +83,7 @@ class PLWordNet(wnsource.WordNet):
             -------
 
             """
-            return conf.make_session(self.db_file)
+            return config.make_session(self.db_file)
 
     POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4,
            'v_en': 5, 'n_en': 6, 'r_en': 7, 'a_en': 8}
@@ -259,7 +260,7 @@ class PLWordNet(wnsource.WordNet):
         return [hypernym_path[0] for hypernym_path in hypernym_paths] if idx else hypernym_paths[0]
 
 
-class PLSynset(wnsource.Synset):
+class PLSynset(wordnet.Synset):
     """plWordNet Synset for the MySQL plWN database.
 
     Parameters
@@ -309,7 +310,7 @@ class PLSynset(wnsource.Synset):
         return self._lunits[0].pos() if self._lunits else 0
 
 
-class PLLexicalUnit(wnsource.Lemma):
+class PLLexicalUnit(wordnet.Lemma):
     """plWordNet lexical unit for the MySQL plWN database.
 
     Parameters
