@@ -6,26 +6,21 @@ import numpy as np
 logger = logging.getLogger()
 
 
-class Mapping:
-    """RL Mapping class between a source and target unit.
+class Connection:
+    """Primarily for statistical purposes."""
+    def __init__(self, constraint, weight):
+        self.constraint = constraint
+        self.weight = weight
 
-    """
+    def update_weight(self, weight):
+        pass
 
-    # class Method(Enum):
-    #     """Mapping condition used."""
-    #     dict = auto()
-    #     counts = auto()
-    #     rlabel = auto()
-    #     manual = auto()
 
-    def __init__(self, source_id, target_id, method='', info=''):
-        self.source_id = source_id
-        self.target_id = target_id
-        self.info = info
-        self.method = method
-
-    def __repr__(self):
-        return '{}->{} ({})'.format(self.source_id, self.target_id, self.method)
+class Label:
+    def __init__(self):
+        self.connections = []
+        self.weight = 0.0
+        self.target = 0
 
 
 class Node:

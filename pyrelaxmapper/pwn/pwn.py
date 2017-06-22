@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 from nltk.corpus import wordnet as wn
 
-from pyrelaxmapper import wnsource
+from pyrelaxmapper import wordnet
 
 
-class PWordNet(wnsource.WordNet):
+class PWordNet(wordnet.WordNet):
     """WordNet WordNet interface for the NTLK version of PWN.
 
     Parameters
@@ -84,7 +84,7 @@ class PWordNet(wnsource.WordNet):
             self._version = wn.get_version()
 
 
-class PSynset(wnsource.Synset):
+class PSynset(wordnet.Synset):
     """WordNet Synset interface.
 
     Parameters
@@ -149,7 +149,7 @@ class PSynset(wnsource.Synset):
         return self._pos
 
 
-class PLemma(wnsource.Lemma):
+class PLemma(wordnet.Lemma):
     """PWN RL Source Lexical Unit.
 
     Parameters
