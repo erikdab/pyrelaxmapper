@@ -6,7 +6,7 @@ import click
 
 from pyrelaxmapper import conf
 from pyrelaxmapper.plwordnet.plsource import PLWordNet
-from pyrelaxmapper.wnmap import translate, main
+from pyrelaxmapper.wnmap import translate
 
 
 def db_info():
@@ -107,7 +107,7 @@ def make_clean():
 def make_mono():
     """Create monosemous mappings between plWN and PWN."""
     click.secho('Running monosemous mapping.', fg='blue')
-    main.main()
+    # main.main()
     click.secho('Done monosemous mapping.', fg='blue')
 
 
