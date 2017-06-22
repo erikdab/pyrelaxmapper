@@ -79,16 +79,16 @@ class Translater(Dictionary):
         return translated, not_translated
 
 
-def find_candidates(source_wn, target_wn, translater=None, cleaner=lambda x: x):
+def find_candidates(source_wn, target_wn, cleaner=lambda x: x, translater=None):
     """Search for candidates between wordnet synsets.
 
     Parameters
     ----------
     source_wn : pyrelaxmapper.wnmap.wnsource.WordNet
     target_wn : pyrelaxmapper.wnmap.wnsource.WordNet
-    translater : Translater, optional
     cleaner : func
         Functions which cleans lemmas
+    translater : Translater, optional
     """
     candidates_dict = {}
     source_lemmas = source_wn.lemma_synsets(cleaner)

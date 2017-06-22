@@ -1,86 +1,9 @@
 # -*- coding: utf-8 -*-
-import logging
-
-logger = logging.getLogger()
 
 
-class Mapping:
-    """RL Mapping class between a source and target unit.
-
-    """
-
-    # class Method(Enum):
-    #     """Mapping condition used."""
-    #     dict = auto()
-    #     counts = auto()
-    #     rlabel = auto()
-    #     manual = auto()
-
-    def __init__(self, source_id, target_id, method='', info=''):
-        self.source_id = source_id
-        self.target_id = target_id
-        self.info = info
-        self.method = method
-
-    def __repr__(self):
-        return '{}->{} ({})'.format(self.source_id, self.target_id, self.method)
-
-
-class Iteration:
-    """Status of Relaxation Labeling algorithm."""
-
-    def __init__(self, statistics, remaining, iteration=0):
-        self._statistics = statistics
-        # Dict with source id as key
-        # Could keep only remaining and then move to mappings at end of iteration.
-        self.mappings = {}
-        self.remaining = remaining
-
-        # We have not found any target candidates (using translations)
-        self.no_candidates = set()
-        # We have not found source in translations.
-        # self.no_translations = set()
-
-        self._iteration = iteration + 1
-        # self.iteration
-        # self.iteration results.
-        # I Could have Iteration Results! Only iterations which have changes are noted,
-        # and only the changes are saved! mapped is checked in all iterations!
-
-    def next_iteration(self):
-        return Iteration(self._statistics, self.remaining, self._iteration)
-
-    def iteration(self):
-        return self._iteration
-
-    def mapping_stats(self):
-        # logger.info('remaining {}; no translations {}; translated: {}, using weights: {}'
-        #             .format(remaining_c, not_translated, translated, using_weights))
-        # logger.info('no_translations: {}, no_translations_lu: {}'
-        #             .format(len(no_translations), len(no_translations_lu)))
-        pass
-
-
-class Statistics:
-    """Status of Relaxation Labeling algorithm."""
-
-    def __init__(self, relaxmapper):
-        self.relaxmapper = relaxmapper
-        # Links
-        # self.wnsource = None
-        # self.wntarget = None
-        self.iterations = [Iteration(self, relaxmapper.polysemous())]
-        # + Already mapped
-        self.mappings = relaxmapper.monosemous()
-        # self.dictionary = None
-        # self.monosemous = None
-        # self.polysemous = None
-        # Only one translation found. Doesn't change with iterations.
-        # self.one_translation = {}
-        # Dict with source id as key
-        # List of lemmas with no translation
-        # List of synsets with no candidates
-        # self.no_translations = set()
+class Stats:
+    def __init__(self, status):
+        self.status = status
         # nNodes
         # nLabels
         # list of X most ambiguous nodes
@@ -95,15 +18,12 @@ class Statistics:
         # CSV is built into Python, XLSX openpyxl,
         # Create graphs.
 
-    def push_iteration(self):
-        it = self.iteration()
-        self.mappings.extend(it.mappings)
-        next_it = Iteration(self, it.remaining, it.iteration())
-        self.iterations.append(next_it)
-        return self.iteration()
-
-    def iteration(self):
-        return self.iterations[-1]
+    def mapping_stats(self):
+        # logger.info('remaining {}; no translations {}; translated: {}, using weights: {}'
+        #             .format(remaining_c, not_translated, translated, using_weights))
+        # logger.info('no_translations: {}, no_translations_lu: {}'
+        #             .format(len(no_translations), len(no_translations_lu)))
+        pass
 
     def mapping_info(self, candidates):
         avg = 0.0
@@ -139,3 +59,10 @@ class Statistics:
         # logger.info('Translations, count: {}'.format(len(self.dictionary)))
         # logger.info('Source synsets, count: {}'.format(len(self.wnsource.all_synsets())))
         # logger.info('Target synsets, count: {}'.format(len(self.wntarget.all_synsets())))
+
+    def stats_iteration(self):
+        pass
+        # logger.info("time: {}".format(toc - tic))
+        # logger.info("Suggestions: {}".format(suggestions))
+        # logger.info("Accepted by user: {}".format(selected))
+        # logger.info("Selected by algorithm: {}".format(mapped_count))
