@@ -3,9 +3,8 @@
 from sqlalchemy import orm
 from sqlalchemy.sql import func, expression
 
-import conf
 from . import models
-from .models import LexicalUnit, Synset, SynsetRelation, RelationType, UnitSynset
+from .models import LexicalUnit, Synset, SynsetRelation, RelationType, UnitSynset, LexicalRelation
 
 
 def version(session):
@@ -13,7 +12,7 @@ def version(session):
     return session.query(models.Parameter).filter_by(name='programversion').first().value
 
 
-def relationtypes(session, types=None):
+def reltypes(session, types=None):
     """Query for hipernyms.
 
     Parameters
@@ -26,7 +25,7 @@ def relationtypes(session, types=None):
             )
 
 
-def relationtypes_pwn_plwn(session):
+def reltypes_pwn_plwn(session):
     """Query plWN for PWN-plWN relation types."""
     return (session.query(RelationType.id_)
             .filter(RelationType.name.like('%plWN%'))
@@ -34,6 +33,7 @@ def relationtypes_pwn_plwn(session):
             .filter(~ RelationType.shortcut.in_(['po_pa', 'po_ap'])))
 
 
+# Use unified id ('n')
 def pwn_mappings(session, pos=None):
     """Query plWN for already mapped synsets between plWN and PWN.
 
@@ -46,10 +46,15 @@ def pwn_mappings(session, pos=None):
     Parameters
     ----------
     session : orm.session.Session
+    pos : list of str
     """
+    # pos_dict = files.pos()
+    # pos_en = []
     if not pos:
-        pos = [6]
-    rel_types = relationtypes_pwn_plwn(session)
+        pos = ['n']
+    # for pos_ in pos:
+    #     pos_en
+    rel_types = reltypes_pwn_plwn(session)
 
     syns_en = orm.aliased(Synset)
     uas_pl = orm.aliased(UnitSynset)
@@ -69,8 +74,7 @@ def pwn_mappings(session, pos=None):
             .filter(RelationType.id_.in_(rel_types))
             .filter(LexicalUnit.pos.in_(['6']))
             .filter(lunit_pl.pos.in_(['2']))
-            # Before wasn't grouped!
-            # .group_by(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
+
             .group_by(Synset.id_)
             .order_by(Synset.id_)
             )
@@ -109,29 +113,6 @@ def synsets(session, pos=None):
     if not pos:
         pos = [2]
     return (session.query(Synset.id_,
-                          expression.label('lu_ids', func.group_concat(LexicalUnit.id_)),
-                          expression.label('lu_lemmas', func.group_concat(LexicalUnit.lemma))
-                          )
-            .join(UnitSynset)
-            .join(LexicalUnit)
-            .filter(LexicalUnit.pos.in_(pos))
-            .order_by(Synset.id_)
-            .group_by(Synset.id_)
-            )
-
-
-def synsets2(session, pos=None):
-    """Query for synsets, concatenated ids and lemmas of their LUs.
-
-    Parameters
-    ----------
-    session : orm.session.Session
-    pos : list
-        Parts of speech to select (default [2])
-    """
-    if not pos:
-        pos = [2]
-    return (session.query(Synset.id_,
                           expression.label('lex_ids', func.group_concat(UnitSynset.lex_id)),
                           expression.label('unitindexes', func.group_concat(UnitSynset.unitindex))
                           )
@@ -143,7 +124,7 @@ def synsets2(session, pos=None):
             )
 
 
-def synset_relations2(session, type, pos=None):
+def synset_relations(session, types, pos=None):
     """Query for hipernyms.
 
     Parameters
@@ -152,65 +133,49 @@ def synset_relations2(session, type, pos=None):
     types : list
         RelationType to select (default [10, 11], hiper/hiponyms)
     """
-    if not pos:
-        pos = [2]
-    return (session.query(SynsetRelation.parent_id, SynsetRelation.child_id)
-            .join(UnitSynset, SynsetRelation.parent_id == UnitSynset.syn_id)
-            .join(LexicalUnit)
-            .filter(SynsetRelation.rel_id == type)
-            .filter(LexicalUnit.pos.in_(pos))
-            .order_by(SynsetRelation.parent_id)
-            .group_by(SynsetRelation.parent_id, SynsetRelation.child_id)
-            )
+    query = (session.query(SynsetRelation.parent_id, SynsetRelation.child_id,
+                           SynsetRelation.rel_id)
+             .order_by(SynsetRelation.parent_id)
+             )
+    if types:
+        types = types if isinstance(types, list) else [types]
+        query = query.filter(SynsetRelation.rel_id.in_(types))
+    if pos:
+        pos = pos if isinstance(pos, list) else [pos]
+        query = (query
+                 .join(UnitSynset, SynsetRelation.parent_id == UnitSynset.syn_id)
+                 .join(LexicalUnit)
+                 .filter(LexicalUnit.pos.in_(pos))
+                 .group_by(SynsetRelation.parent_id, SynsetRelation.child_id,
+                           SynsetRelation.rel_id)
+                 )
+
+    return query
 
 
-def synset_relations(session, types=None):
+def lexical_relations(session, rel_types, pos=None):
     """Query for hipernyms.
 
     Parameters
     ----------
     session : orm.session.Session
-    types : list
-        RelationType to select (default [10, 11], hiper/hiponyms)
+    rel_types : list
+        RelationType to select
+    pos : list
+        Parts of speech to extract. If empty, extract all.
     """
-    if types is None:
-        types = [10, 11]
-    return (session.query(SynsetRelation.parent_id, SynsetRelation.child_id)
-            .filter(SynsetRelation.rel_id.in_(types))
-            .order_by(SynsetRelation.rel_id, SynsetRelation.parent_id)
-            )
-
-
-def extract_files(session, nouns_only=True):
-    """Extract data from plWordNet to files."""
-    with open(conf.results('units.txt'), "w", encoding="utf-8") as file:
-        lunits_ = lunits(session).all()
-        file.write('\n'.join('{} {}'.format(lunit.id_, lunit.name.replace(' ', '_'))
-                             for lunit in lunits_))
-
-    with open(conf.results('synsets.txt'), "w", encoding="utf-8") as file_ids, \
-            open(conf.results('synsets_text.txt'), "w", encoding="utf-8") as file_text:
-        synsets_ = synsets(session).all()
-
-        lu_ids = ('{} {}'.format(synset.id_, ' '.join(synset.lu_ids.split(',')))
-                  for synset in synsets_)
-        file_ids.write('\n'.join(lu_ids))
-
-        lu_lemmas = ('{} {}'.format(synset.id_,
-                                    ' '.join(synset.lu_lemmas.replace(' ', '_').split(',')))
-                     for synset in synsets_)
-        file_text.write('\n'.join(lu_lemmas))
-
-    with open(conf.results('synset_hipernyms.txt'), "w", encoding="utf-8") as file_hiper, \
-            open(conf.results('synset_hiponyms.txt'), "w", encoding="utf-8") as file_hipo:
-        hiper_count = synset_relations(session, [10]).count()
-        relations = synset_relations(session).all()
-        hipernyms, hiponyms = relations[:hiper_count], relations[hiper_count:]
-
-        hipernyms_out = ('{} {}'.format(relation.parent_id, relation.child_id)
-                         for relation in hipernyms)
-        file_hiper.write('\n'.join(hipernyms_out))
-
-        hiponyms_out = ('{} {}'.format(relation.parent_id, relation.child_id)
-                        for relation in hiponyms)
-        file_hipo.write('\n'.join(hiponyms_out))
+    query = (session.query(LexicalRelation.parent_id, LexicalRelation.child_id,
+                           LexicalRelation.rel_id)
+             .order_by(LexicalRelation.parent_id)
+             )
+    if rel_types:
+        rel_types = rel_types if isinstance(rel_types, list) else [rel_types]
+        query = query.filter(LexicalRelation.rel_id.in_(rel_types))
+    if pos:
+        pos = pos if isinstance(pos, list) else [pos]
+        query = (query
+                 .join(LexicalUnit, LexicalRelation.parent_id == LexicalUnit.id_)
+                 .filter(LexicalUnit.pos.in_(pos))
+                 .group_by(LexicalRelation.parent_id, LexicalRelation.child_id)
+                 )
+    return query

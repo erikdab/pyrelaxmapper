@@ -1,26 +1,20 @@
 # -*- coding: utf-8 -*-
-"""WordNet Base interface."""
+"""WordNet source interface."""
 
 
-# Faster creating cache.
-# Smaller cache size.
-# Validation of all mappings.
-# If DB, relationships between all objects.
-# TODO: Links between RLSynset and RLLexicalUnit and back
-# (expect for plWordNet source)
-
-
-class RLWordNet:
+class WordNet:
     """WordNet Interface.
 
-    Define which features it supports. Maybe specify WordNet config"""
+    Aims to provide a unified interface for accessing WordNet
+    information to simplify writing code for multiple WordNets.
+    """
     def __repr__(self):
-        format = "{}({})" if isinstance(self.version(), int) else "{}('{}')"
-        return format.format(type(self).__name__, self.version())
+        info = "{}({})" if isinstance(self.version(), int) else "{}('{}')"
+        return info.format(type(self).__name__, self.version())
 
     @staticmethod
-    def name():
-        """RL Source name.
+    def name_full():
+        """WordNet full name.
 
         Returns
         -------
@@ -29,8 +23,18 @@ class RLWordNet:
         pass
 
     @staticmethod
-    def name_short():
-        """RL Source short name.
+    def name():
+        """WordNet short name.
+
+        Returns
+        -------
+        str
+        """
+        pass
+
+    @staticmethod
+    def uid():
+        """WordNet type used for identification.
 
         Returns
         -------
@@ -39,7 +43,7 @@ class RLWordNet:
         pass
 
     def lang(self):
-        """RL Source language.
+        """WordNet core language.
 
         Returns
         -------
@@ -48,62 +52,81 @@ class RLWordNet:
         pass
 
     def version(self):
-        """RL Source version (any format).
+        """WordNet version.
 
         Returns
         -------
-        str
+        version: str or int
         """
         pass
 
-    def synset(self, id_):
+    def synset(self, uid):
         """Synset with id.
 
         Parameters
         ----------
-        id_ : str or int
+        uid : str or int
+
+        Returns
+        -------
+        Synset
         """
         pass
 
     def synsets(self, lemma, pos=None):
-        """All synsets containing lemma of desired POS.
+        """Synsets containing lemma of desired POS.
 
         Parameters
         ----------
         lemma : str
             Lemma to search for.
         pos : str, optional
-            POS to search for.
+            POS to search for, if not specified, any POS.
+
+        Returns
+        -------
+        synsets : list of Synset
         """
         pass
 
-    def synsets_all(self):
+    def all_synsets(self):
         """All synsets.
 
         Returns
         -------
-        synsets: list of pyrelaxmapper.wnmap.wnsource.RLSynset
+        synset: list of Synset
         """
         pass
 
-    def all_hypernyms(self):
-        pass
-
-    def all_hyponyms(self):
-        pass
-
-    def mappings(self, target_wn):
-        """Existing mappings
+    def lemma_synsets(self, cleaner):
+        """List of mappings from lemma to synset which contain it.
 
         Parameters
         ----------
-        target_wn : str
-            Name of target WordNet to look for existing mappings to.
+        cleaner : func
         """
-        pass
+        lemmas = {}
+        for synset in self.all_synsets():
+            for lemma in synset.lemmas():
+                lemmas.setdefault(cleaner(lemma.name()), []).append(synset.uid())
+        return lemmas
 
+    def mappings(self, other_wn):
+        """Existing mappings with another wordnet.
+
+        Parameters
+        ----------
+        other_wn : str
+            Short name of target WordNet to look for existing mappings to.
+        """
+        return None
+
+    # Could create unified enum
     def pos(self):
-        """All POS.
+        """Parts of speech.
+
+        Key is unified string pos.
+        Value is the id as stored in the wordnet.
 
         Returns
         -------
@@ -120,27 +143,27 @@ class RLWordNet:
         """
         pass
 
-    def empties(self):
-        pass
 
+class Synset:
+    """WordNet Synset interface.
 
-class RLSynset:
-    """RL Source Synset interface."""
+    Aims to provide a unified interface for accessing WordNet synset
+    information to simplify writing code for multiple WordNets.
+    """
     def __repr__(self):
-        format = "{}({})" if isinstance(self.name(), int) else "{}('{}')"
-        return format.format(type(self).__name__, self.name())
+        info = "{}({})" if isinstance(self.name(), int) else "{}('{}')"
+        return info.format(type(self).__name__, self.name())
 
-    def id_(self):
-        """Unique identifier.
+    def uid(self):
+        """Synset unique identifier in database / corpus.
 
         Returns
         -------
-        id_ : int or str or tuple
+        uid : int or str
         """
         pass
 
-    @staticmethod
-    def name():
+    def name(self):
         """Name.
 
         Returns
@@ -154,7 +177,7 @@ class RLSynset:
 
         Returns
         -------
-        lemmas : list of RLLexicalUnit
+        lemmas : list of Lemma
         """
         pass
 
@@ -170,13 +193,26 @@ class RLSynset:
     def hypernyms(self):
         """Hypernyms.
 
+        Selects synsets which are hypernyms to this synset.
+
         Returns
         -------
-        hypernyms : list of RLSynset
+        hypernyms : list of Synset
         """
         pass
 
     def hypernym_paths(self):
+        """Hypernym paths.
+
+        Selects synsets which are hypernyms to this synset.
+
+        Returns
+        -------
+        hypernym_paths : list
+        """
+        pass
+
+    def hypernym_layers(self):
         """Hypernym paths.
 
         Returns
@@ -192,42 +228,93 @@ class RLSynset:
         -------
         int
         """
-        pass
+        min_depth_ = None
+        for path in self.hypernym_paths():
+            if min_depth_ is None or min_depth_ < len(path):
+                min_depth_ = len(path)
+        return min_depth_
 
     def hyponyms(self):
         """Hyponyms.
 
         Returns
         -------
-        hyponyms : list of RLSynset
+        hyponyms : list of Synset
+        """
+        pass
+
+    def hyponym_layers(self):
+        """Hyponym layers.
+
+        Returns
+        -------
+        hyponyms : list of Synset
+        """
+        pass
+
+    def find_hyponym_layers(self):
+        """
+
+        Parameters
+        ----------
+        synset : pyrelaxmapper.wnmap.wnsource.Synset
+
+        Returns
+        -------
+        list
+        """
+        todo = [self]
+        hipo_layers = []
+        while todo:
+            do_next = []
+            for node in todo:
+                do_next.extend(node.hyponyms())
+            todo = do_next
+            if todo:
+                hipo_layers.append(todo)
+        return hipo_layers
+
+    def antonyms(self):
+        """Antonyms
+
+        Returns
+        -------
+        antonyms : list of Synset
         """
         pass
 
     # TODO: Need to standard on int/str/etc.
     def pos(self):
-        """Part of speech.
+        """Unified part of speech id.
 
         Returns
         -------
-        pos : int or str
+        pos : str
         """
         pass
 
 
-class RLLexicalUnit:
-    """RL Source Lexical Unit interface."""
-    def __repr__(self):
-        # tup = type(self).__name__, self._synset._name, self._name
-        # return "{}('{}.{}')".format(*tup)
-        format = "{}({})" if isinstance(self.name(), int) else "{}('{}')"
-        return format.format(type(self).__name__, self.name())
+class Lemma:
+    """WordNet Lemma interface.
 
-    def id_(self):
-        """Unique identifier."""
+    Aims to provide a unified interface for accessing WordNet lemma
+    information to simplify writing code for multiple WordNets.
+    """
+    def __repr__(self):
+        info = "{}({})" if isinstance(self.name(), int) else "{}('{}')"
+        return info.format(type(self).__name__, self.name())
+
+    def uid(self):
+        """Lemma unique identifier in database / corpus.
+
+        Returns
+        -------
+        uid : int or str
+        """
         pass
 
     def name(self):
-        """Name, lemma.
+        """Name.
 
         Returns
         -------
@@ -236,10 +323,10 @@ class RLLexicalUnit:
         pass
 
     def pos(self):
-        """Part of speech.
+        """Unified part of speech id.
 
         Returns
         -------
-        pos : int or str
+        pos : str
         """
         pass

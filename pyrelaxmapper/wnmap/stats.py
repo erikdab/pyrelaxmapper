@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-import copy
-
 import logging
 
 logger = logging.getLogger()
@@ -31,47 +29,29 @@ class Mapping:
 class Iteration:
     """Status of Relaxation Labeling algorithm."""
 
-    def __init__(self, statistics, name=None):
+    def __init__(self, statistics, remaining, iteration=0):
         self._statistics = statistics
         # Dict with source id as key
+        # Could keep only remaining and then move to mappings at end of iteration.
         self.mappings = {}
-        self.remaining = {}
+        self.remaining = remaining
 
         # We have not found any target candidates (using translations)
         self.no_candidates = set()
         # We have not found source in translations.
-        self.no_translations = set()
+        # self.no_translations = set()
 
-        self.iteration = name
+        self._iteration = iteration + 1
         # self.iteration
         # self.iteration results.
         # I Could have Iteration Results! Only iterations which have changes are noted,
         # and only the changes are saved! mapped is checked in all iterations!
 
-    def copy(self, name=None):
-        state = Iteration(self._statistics, name)
-        state.mappings = copy.deepcopy(self.mappings)
-        state.remaining = copy.deepcopy(self.remaining)
-        state.no_translations = self.no_translations
-        return state
+    def next_iteration(self):
+        return Iteration(self._statistics, self.remaining, self._iteration)
 
-    def name(self):
-        return self._name
-
-    def monosemous(self):
-        pass
-
-    def polysemous(self):
-        pass
-
-    def mappings(self):
-        pass
-
-    def remaining(self):
-        pass
-
-    def no_translations(self):
-        pass
+    def iteration(self):
+        return self._iteration
 
     def mapping_stats(self):
         # logger.info('remaining {}; no translations {}; translated: {}, using weights: {}'
@@ -84,21 +64,26 @@ class Iteration:
 class Statistics:
     """Status of Relaxation Labeling algorithm."""
 
-    def __init__(self, wnsource, wntarget):
-        self.wnsource = wnsource
-        self.wntarget = wntarget
-        self.iterations = [Iteration(self)]
-        self.dictionary = None
-        self.monosemous = None
-        self.polysemous = None
+    def __init__(self, relaxmapper):
+        self.relaxmapper = relaxmapper
+        # Links
+        # self.wnsource = None
+        # self.wntarget = None
+        self.iterations = [Iteration(self, relaxmapper.polysemous())]
+        # + Already mapped
+        self.mappings = relaxmapper.monosemous()
+        # self.dictionary = None
+        # self.monosemous = None
+        # self.polysemous = None
         # Only one translation found. Doesn't change with iterations.
-        self.one_translation = {}
+        # self.one_translation = {}
         # Dict with source id as key
         # List of lemmas with no translation
         # List of synsets with no candidates
-        self.no_translations = set()
+        # self.no_translations = set()
         # nNodes
         # nLabels
+        # list of X most ambiguous nodes
         # maxLabelsPerNode
         # nConnections
         # nTrans = nMulTrans = nNoTrans
@@ -110,27 +95,31 @@ class Statistics:
         # CSV is built into Python, XLSX openpyxl,
         # Create graphs.
 
-    def push_iteration(self, name=None):
-        iter = self.iteration().copy(name)
-        self.iterations.append(iter)
-
-    # Could be a yield
-    def mapped(self):
-        combined = []
-        for state in self.iterations:
-            combined.extend(state.mappings)
-
-    def in_mapped(self, source_id):
-        for state in self.iterations:
-            if source_id in state.mappings:
-                return True
-        return False
-
-    def pop_iteration(self):
-        self.iterations.pop()
+    def push_iteration(self):
+        it = self.iteration()
+        self.mappings.extend(it.mappings)
+        next_it = Iteration(self, it.remaining, it.iteration())
+        self.iterations.append(next_it)
+        return self.iteration()
 
     def iteration(self):
         return self.iterations[-1]
+
+    def mapping_info(self, candidates):
+        avg = 0.0
+        max = None
+        min = None
+        for key, candidate in candidates.items():
+            count = len(candidate)
+            if max is None or count > max:
+                max = count
+            if min is None or count < min:
+                min = count
+            avg += count
+        avg = avg / len(candidates)
+        # ALL:  avg:14.81, max:491, min:1
+        # POLY: avg:20.74, max:491, min:2
+        print('avg:{:.2f}, max:{}, min:{}'.format(avg, max, min))
 
     def coverage(self):
         pass
@@ -146,6 +135,7 @@ class Statistics:
         # len(candidates), full_len, 100 * full_coverage))
 
     def wordnet_info(self):
-        logger.info('Translations, count: {}'.format(len(self.dictionary)))
-        logger.info('Source synsets, count: {}'.format(len(self.wnsource.synsets_all())))
-        logger.info('Target synsets, count: {}'.format(len(self.wntarget.synsets_all())))
+        pass
+        # logger.info('Translations, count: {}'.format(len(self.dictionary)))
+        # logger.info('Source synsets, count: {}'.format(len(self.wnsource.all_synsets())))
+        # logger.info('Target synsets, count: {}'.format(len(self.wntarget.all_synsets())))
