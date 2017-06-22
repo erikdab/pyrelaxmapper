@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Relaxation labeling Configuration."""
-from plwordnet.plsource import PLWordNet
-from pwn.psource import PWordNet
+from pyrelaxmapper.plwordnet.plsource import PLWordNet
+from pyrelaxmapper.pwn.psource import PWordNet
 
 
 class WNConfig:

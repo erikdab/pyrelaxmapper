@@ -4,9 +4,8 @@ import os
 
 import click
 
-from pyrelaxmapper import conf
+from pyrelaxmapper import conf, translate
 from pyrelaxmapper.plwordnet.plsource import PLWordNet
-from pyrelaxmapper.wnmap import translate
 
 
 def db_info():

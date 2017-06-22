@@ -1,19 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
-123
-AAE
-1: Source WN
-2: Target WN
-    A - recursive
-    I - immediate
-3: Type:
-    E - hyper
-    O - hypo
-    B - both
-"""
 import logging
 
-from wnmap import wnutils
+from pyrelaxmapper import wnutils
 
 logger = logging.getLogger()
 
@@ -166,6 +154,18 @@ class DaughtersConstraint(Constraint):
 
 
 class HyperHypoConstraint(Constraint):
+    """
+    123
+    AAE
+    1: Source WN
+    2: Target WN
+        A - recursive
+        I - immediate
+    3: Type:
+        E - hyper
+        O - hypo
+        B - both
+    """
     def apply(self, mapped, node):
         self.mapped = mapped
         constr = 'ii'
