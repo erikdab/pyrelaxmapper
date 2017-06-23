@@ -87,6 +87,24 @@ class PWordNet(wordnet.WordNet):
         if not self._version:
             self._version = wn.get_version()
 
+    def count_synsets(self):
+        """Count of all synsets.
+
+        Returns
+        -------
+        int
+        """
+        return len(self._synsets)
+
+    def count_lunits(self):
+        """Count of all lunits.
+
+        Returns
+        -------
+        int
+        """
+        return 0
+
 
 class PSynset(wordnet.Synset):
     """WordNet Synset interface.

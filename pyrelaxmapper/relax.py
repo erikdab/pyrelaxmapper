@@ -27,14 +27,14 @@ class Relaxer:
         """Run relaxation labeling"""
         iteration = self.status.iteration()
 
+        self.stats.wordnet_info()
         # Stopping Condition
         while iteration.index() <= 1 or self.status.iterations[-2].has_changes():
             self._iteration_relax()
-            self.stats.stats_iteration(iteration)
+            self.stats.stat_iteration(iteration)
             iteration = self.status.push_iteration()
 
     def _iteration_relax(self):
-        iteration = self.status.iteration()
         remaining = self.status.remaining
         logger.info('Resetting weights.')
         for node in remaining.values():

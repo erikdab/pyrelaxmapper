@@ -16,7 +16,6 @@ requirements = [
     'colorama>=0.3',        # Required for colors on Windows
     'mysqlclient>=1.3',
     'sqlalchemy>=1.1',
-
     'numpy>=1.12',
     # 'cairocffi>=0.8',       # python-igraph prerequisite
     # 'python-igraph>=0.7',

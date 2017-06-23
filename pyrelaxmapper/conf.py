@@ -38,6 +38,12 @@ def ensure_dir(directory):
         os.makedirs(directory)
     return directory
 
+def ensure_dir(directory):
+    """File in directory."""
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    return directory
+
 
 def file_in_dir(directory, filename):
     """File in directory."""
@@ -224,6 +230,9 @@ def load_properties(file):
 class Config:
     """Application Configuration.
 
+class Config:
+    """Application Configuration.
+
     Parameters
     ----------
     parser : configparser.ConfigParser
@@ -394,8 +403,5 @@ class Config:
     def clean_cache(self):
         clean_directory(self.cache_dir())
 
-    def file_candidates(self):
-        return '({} -> {}) Candidates'.format(self.source_wn().name(), self.target_wn().name())
-
-    def file_relaxer(self):
-        return '({} -> {}) Relaxer'.format(self.source_wn().name(), self.target_wn().name())
+    def mapping_group(self):
+        return '{} -> {}'.format(self.source_wn().name(), self.target_wn().name())

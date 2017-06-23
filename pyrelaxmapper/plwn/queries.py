@@ -34,7 +34,7 @@ def reltypes_pwn_plwn(session):
 
 
 # Use unified id ('n')
-def pwn_mappings(session, pos=None):
+def pwn_mappings(session, pos=None, pos_en=None):
     """Query plWN for already mapped synsets between plWN and PWN.
 
     Selects: polish synset id, english synset unitsstr, POS
@@ -46,21 +46,19 @@ def pwn_mappings(session, pos=None):
     Parameters
     ----------
     session : orm.session.Session
-    pos : list of str
+    pos : list of int
+    pos_en : list of int
     """
-    # pos_dict = files.pos()
-    # pos_en = []
     if not pos:
-        pos = ['n']
-    # for pos_ in pos:
-    #     pos_en
+        pos = [2]
+    if not pos_en:
+        pos_en = [6]
     rel_types = reltypes_pwn_plwn(session)
 
     syns_en = orm.aliased(Synset)
     uas_pl = orm.aliased(UnitSynset)
     lunit_pl = orm.aliased(LexicalUnit)
-    # return (session.query(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
-    return (session.query(Synset.id_)
+    return (session.query(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
             .join(SynsetRelation, Synset.id_ == SynsetRelation.parent_id)
             .join(syns_en, SynsetRelation.child_id == syns_en.id_)
 
@@ -72,10 +70,10 @@ def pwn_mappings(session, pos=None):
 
             .join(RelationType, SynsetRelation.rel_id == RelationType.id_)
             .filter(RelationType.id_.in_(rel_types))
-            .filter(LexicalUnit.pos.in_(['6']))
-            .filter(lunit_pl.pos.in_(['2']))
+            .filter(LexicalUnit.pos.in_(pos_en))
+            .filter(lunit_pl.pos.in_(pos))
 
-            .group_by(Synset.id_)
+            .group_by(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
             .order_by(Synset.id_)
             )
 
