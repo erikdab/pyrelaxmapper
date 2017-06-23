@@ -1,72 +1,18 @@
 # -*- coding: utf-8 -*-
 import logging
-import os
-import pickle
 import re
+from configparser import ConfigParser
 
+import numpy as np
 import sqlalchemy
 import sqlalchemy.engine.url
 import sqlalchemy.orm
 
-from pyrelaxmapper import config
-
 logger = logging.getLogger()
 
 
-def cached(name, func, args=None, group=None):
-    """Load from cache file or create and save to cached file.
-
-    Parameters
-    ----------
-    name
-        Name of cache file
-    func
-        Can be function, or class
-    args
-        Args to pass to function / class
-    """
-    if args is None:
-        args = []
-    elif not isinstance(args, list):
-        args = [args]
-
-    filename = config.cache(name if not group else os.path.join(group, name))
-
-    if '.pkl' not in filename:
-        filename += '.pkl'
-
-    group_name = '{}/{}'.format(group, name) if group else name
-    source = 'from cache' if os.path.exists(filename) else 'live'
-    logger.info('Loading "{}" {}.'.format(group_name, source))
-
-    data = None
-    if source == 'from cache':
-        try:
-            data = load_obj(filename)
-        except ModuleNotFoundError as e:
-            logger.debug('Cache loading error "{}". File: {}.'.format(e, filename))
-    if not data:
-        data = func(*args)
-        save_obj(data, filename)
-
-    # Also: Object generation function may have their own caches!
-    # WHY? For time measurement. We know exactly how long it took!
-    logger.info('Loaded "{}".'.format(group_name))
-    return data
-
-
-def save_obj(obj, name):
-    with open(name, 'wb') as f:
-        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-
-
-def load_obj(name):
-    with open(name, 'rb') as f:
-        return pickle.load(f)
-
-
-# Should handle terms which are ONLY Symbols!
 def clean(term, spaces=False):
+    """Clean symbols for term."""
     rep = {'(': '', ')': '', 'the ': '', '/': '', ' ': '_', '-': '_', ',': ''}
     # if spaces:
     #     rep[' '] = '_'
@@ -104,7 +50,90 @@ def multi_replace(text, replacements, ignore_case=False):
 
 
 #######################################################################
+# Functions
+
+def normalized(a, axis=-1, order=2):
+    """Normalize numpy vector to 1
+
+    Parameters
+    ----------
+    a : np.ndarray
+    axis : int
+    order : int
+
+    Returns
+    -------
+    np.ndarray
+    """
+    l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
+    l2[l2 == 0] = 1
+    return a / np.expand_dims(l2, axis)
+
+
+#######################################################################
 # Database utilities.
+
+
+def load_properties(file):
+    """Prepares .properties file to be opened by ConfigParser.
+
+    Adds a dummy section name so the parser can open it: '[properties]'
+
+    Parameters
+    ----------
+    file
+        File handler with source .properties file.
+
+    Returns
+    -------
+    file
+        File handler ready to be read into a ConfigParser.
+    """
+    config = io.StringIO()
+    config.write('[properties]\n')
+    config.write(file.read())
+    config.seek(0, os.SEEK_SET)
+    return config
+
+
+def load_conf_db(file):
+    """Loads database settings from a Java-style properties file.
+
+    Parameters
+    ----------
+    file
+        File handler with database properties in Java .properties file.
+
+    Returns
+    -------
+    dict
+        keys: ['drivername', 'host', 'port', 'database', 'username',
+               'password']
+    """
+    db_parser = ConfigParser()
+    db_parser.read_file(load_properties(file))
+    conf = db_parser['properties']
+    match = re.search('(mysql):\/\/(.+?):?(\d+)?\/(.+)(?=\?)', conf['Url'])
+    if len(match.groups()) != 4:
+        pattern = '..mysql://host[:port]/database..'
+        raise ValueError('Property "Url" in database properties does not match pattern: {}.'
+                         .format(pattern))
+
+    keys = ('drivername', 'host', 'port', 'database')
+    settings = {key: value for key, value in zip(keys, match.groups())}
+    settings['username'] = conf['User']
+    settings['password'] = conf['Password']
+
+    return settings
+
+
+def make_session(filename):
+    """Make DB session."""
+    with open(filename) as file:
+        settings = load_conf_db(file)
+    engine = create_engine(settings)
+    return session_start(engine)
+
 
 def create_engine(settings):
     """Create an UTF-8 SQLAlchemy engine from settings dict."""

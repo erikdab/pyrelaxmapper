@@ -47,6 +47,10 @@ class PWordNet(wordnet.WordNet):
     def name():
         return 'PWN'
 
+    @staticmethod
+    def uid():
+        return 'pwn-nltk'
+
     def lang(self):
         return 'en-us'
 
@@ -102,7 +106,7 @@ class PSynset(wordnet.Synset):
         # nltk.lexname() 'noun.animal'!!
         self._lemmas = []
         for lemma in nltk_synset.lemmas():
-            self._lemmas.append(PLemma(lemma, self, lemma.name()))
+            self._lemmas.append(PLexicalUnit(lemma, self, lemma.name()))
         self._hypernyms = [syn.offset() for syn in nltk_synset.hypernyms()]
         self._hypernym_paths = []
         for path in nltk_synset.hypernym_paths():
@@ -149,7 +153,7 @@ class PSynset(wordnet.Synset):
         return self._pos
 
 
-class PLemma(wordnet.Lemma):
+class PLexicalUnit(wordnet.LexicalUnit):
     """PWN RL Source Lexical Unit.
 
     Parameters

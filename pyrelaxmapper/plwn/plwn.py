@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
+import logging
 
-import config
-from pyrelaxmapper import wordnet
+from pyrelaxmapper import wordnet, utils
 from pyrelaxmapper.plwn import queries, files
+
+logger = logging.getLogger()
 
 
 class PLWordNet(wordnet.WordNet):
@@ -33,6 +35,7 @@ class PLWordNet(wordnet.WordNet):
 
         self._load_data()
 
+    # Add tests, plus option to not set all.
     class Config:
         """plWordNet WordNet configuration.
 
@@ -44,10 +47,17 @@ class PLWordNet(wordnet.WordNet):
             Default selects the [source] section.
         """
         def __init__(self, parser, section='source'):
-            self.db_file = parser[section]['db-file']
-            self._pos_file = parser[section]['pos-file']
-            self._domain_file = parser[section]['domain-file']
-            self._pos = parser['relaxer']['pos']
+            if not parser.has_option(section, 'db-file'):
+                raise KeyError('plWordNet ({}) config requires the "db-file" option.'
+                               .format(PLWordNet.uid()))
+            self.db_file = os.path.expanduser(parser[section]['db-file'])
+            self._pos_file = None
+            if parser.has_option(section, 'pos-file'):
+                self._pos_file = os.path.expanduser(parser[section]['pos-file'])
+            self._domain_file = None
+            if parser.has_option(section, 'domain-file'):
+                self._domain_file = os.path.expanduser(parser[section]['domain-file'])
+            self._pos = parser['relaxer']['pos'].split(',')
 
         def pos_file(self):
             """Filename containing POS information.
@@ -76,14 +86,14 @@ class PLWordNet(wordnet.WordNet):
             """
             return self._pos
 
-        def session(self):
+        def make_session(self):
             """Start a DB connection to plWordNet database.
 
             Returns
             -------
 
             """
-            return config.make_session(self.db_file)
+            return utils.make_session(self.db_file)
 
     POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4,
            'v_en': 5, 'n_en': 6, 'r_en': 7, 'a_en': 8}
@@ -93,12 +103,12 @@ class PLWordNet(wordnet.WordNet):
         return 'plWordNet'
 
     @staticmethod
-    def type():
-        return 'plwn-sql'
-
-    @staticmethod
     def name():
         return 'plWN'
+
+    @staticmethod
+    def uid():
+        return 'plwn-sql'
 
     def lang(self):
         return 'pl-pl'
@@ -148,13 +158,23 @@ class PLWordNet(wordnet.WordNet):
             Short name of target WordNet to look for existing mappings to.
         """
         if other_wn in ['PWN', 'WordNet']:
-            session = self._config.session()
+            session = self._config.make_session()
             return [self.synset(row.id_) for row in queries.pwn_mappings(session).all()]
         return None
 
     def _load_data(self):
         """Load plWordNet data from MySQL."""
-        session = self._config.session()
+
+        # Create method to read this
+        if not self._pos and self._config.pos_file():
+            with open(self._config.pos_file()) as file:
+                self._pos = files.load_pos(file)
+
+        if not self._domains and self._config.domain_file():
+            with open(self._config.domain_file()) as file:
+                self._domains = files.load_domains(file)
+
+        session = self._config.make_session()
 
         if not self._synsets:
             pos = []
@@ -162,80 +182,58 @@ class PLWordNet(wordnet.WordNet):
                 pos.append(self.POS[uid])
 
             # Lexical Units
-            lunits_query = queries.lunits(session, pos)
-            self._lunits = {lunit.id_: PLLexicalUnit(lunit.id_, lunit.lemma, lunit.pos)
-                            for lunit in lunits_query}
+            # TODO: Glosses
+            logger.info('{} Loading lexical units.'.format(type(self).__name__))
+            self._lunits = {lunit.id_:
+                            PLLexicalUnit(self, lunit.id_, lunit.lemma, lunit.pos, lunit.domain)
+                            for lunit in queries.lunits(session, pos)}
 
             # Synsets
-            synsets_query = queries.synsets(session, pos)
-            self._synsets = {int(unitindex): int(lex_id)
-                             for synset in synsets_query
-                             for lex_id, unitindex in
-                             zip(synset.lex_ids.split(','), synset.unitindexes.split(','))}
+            # TODO: definition could probably be useful, unitsstr maybe?
+            logger.info('{} Loading synsets.'.format(type(self).__name__))
+            self._synsets = {}
+            for synset in queries.synsets(session, pos):
+                s_lunits = {int(unitindex): self._lunits[int(lex_id)]
+                            for lex_id, unitindex in
+                            zip(synset.lex_ids.split(','), synset.unitindexes.split(','))}
+                self._synsets[synset.id_] = PLSynset(self, synset.id_, synset.definition, s_lunits)
 
             # Relation Types
-            reltypes_query = queries.reltypes(session)
-            self._reltypes = {reltype.name: reltype for reltype in reltypes_query}
+            self._reltypes = {reltype.name: reltype for reltype in queries.reltypes(session)}
 
             # Synset Relations:
-            # This looks reversed, but is actually appropriate.
-            hyper_query = queries.synset_relations(session, self._reltypes['hiponimia'].id_, pos)
-            hypo_query = queries.synset_relations(session, self._reltypes['hiperonimia'].id_, pos)
-
+            logger.info('{} Loading hyper/hypo relations.'.format(type(self).__name__))
             self._hypernyms = {}
             self._hyponyms = {}
-            for hypernym in hyper_query:
-                self._hypernyms.setdefault(hypernym.parent_id, []).append(
-                    self.synset(hypernym.child_id))
-            for hyponym in hypo_query:
-                self._hyponyms.setdefault(hyponym.parent_id, []).append(
-                    self.synset(hyponym.child_id))
+            hyper_relid = self._reltypes['hiperonimia'].id_
+            hypo_relid = self._reltypes['hiponimia'].id_
+            for hypernym in queries.synset_relations(session, self._reltypes['hiperonimia'].id_, pos):
+                self._hypernyms.setdefault(hypernym.child_id, []).append(
+                    self.synset(hypernym.parent_id))
+            for hyponym in queries.synset_relations(session, self._reltypes['hiponimia'].id_, pos):
+                self._hyponyms.setdefault(hyponym.child_id, []).append(
+                    self.synset(hyponym.parent_id))
 
-            self._hyponym_layers = {synset.id_(): self._find_hyponym_layers(synset)
+            logger.info('{} Calculating hyponym layers.'
+                        .format(type(self).__name__))
+            self._hyponym_layers = {synset.uid(): synset.find_hyponym_layers()
                                     for synset in self._synsets.values()}
-            self._hypernym_paths = {synset.id_(): self._find_hypernym_paths(synset)
+            logger.info('{} Calculating hipernym paths.'
+                        .format(type(self).__name__))
+            self._hypernym_paths = {synset.uid(): self._find_hypernym_paths(synset)
                                     for synset in self._synsets.values()}
 
             # Lexical Relations:
-            antonyms = queries.lexical_relations(session, pos,
-                                                 self._reltypes['antonimia właściwa'].id_)
-
-            for antonym in antonyms:
-                self._antonyms.setdefault(antonym.parent_id, []).append(
-                    self._lunits[antonym.child_id])
-
-        if not self._pos:
-            with open(os.path.expanduser(self._config.pos_file())) as file:
-                self._pos = files.load_pos(file)
-
-        if not self._domains:
-            with open(os.path.expanduser(self._config.domain_file())) as file:
-                self._pos = files.load_pos(file)
+            logger.info('{} Loading antonymy relations.'.format(type(self).__name__))
+            antonym_relid = self._reltypes['antonimia'].id_
+            for antonym in queries.lexical_relations(session, antonym_relid, pos):
+                self._antonyms.setdefault(antonym.child_id, []).append(
+                    self._lunits[antonym.parent_id])
 
         if not self._version:
             self._version = queries.version(session)
-
-    def _find_hyponym_layers(self, synset):
-        """Find hyponym layers for synset.
-
-        Parameters
-        ----------
-        synset : pyrelaxmapper.wnmap.wnsource.Synset
-
-        Returns
-        -------
-        hipo_layers : list of pyrelaxmapper.wnmap.wnsource.Synset
-        """
-        todo = [synset]
-        hipo_layers = []
-        while todo:
-            do_next = []
-            for node in todo:
-                do_next.extend(node.hyponyms())
-            todo = do_next
-            if todo:
-                hipo_layers.append(todo)
-        return hipo_layers
+        # TODO: remove
+        logger.info('{} Loading done.'.format(type(self).__name__))
 
     def _find_hypernym_paths(self, synset):
         """Find hypernym paths for synset.
@@ -268,13 +266,15 @@ class PLSynset(wordnet.Synset):
     plwordnet : PLWordNet
     uid : int
         Unique identifier
+    definition : str
+        Definition
     lunits: dict
         Lexical units
     """
-
-    def __init__(self, plwordnet, uid, lunits):
+    def __init__(self, plwordnet, uid, definition, lunits):
         self._plwordnet = plwordnet
         self._uid = uid
+        self._definition = definition if definition and 'brak danych' not in definition else ''
         self._lunits = lunits
 
     def uid(self):
@@ -303,36 +303,52 @@ class PLSynset(wordnet.Synset):
 
     def antonyms(self):
         return [antonym.name()
-                for unit_id in self._lunits
-                for antonym in self._plwordnet.antonyms(unit_id)]
+                for lunit in self._lunits.values()
+                for antonym in lunit.antonyms()]
 
     def pos(self):
         return self._lunits[0].pos() if self._lunits else 0
 
 
-class PLLexicalUnit(wordnet.Lemma):
+class PLLexicalUnit(wordnet.LexicalUnit):
     """plWordNet lexical unit for the MySQL plWN database.
 
     Parameters
     ----------
+    plwordnet : PLWordNet
     uid : int
-        Lexical Unit unique identifier.
+        Unique identifier.
     lemma : str
-        Lemma of Lexical Unit
+        Lemma
     pos : str
-        Lexical Unit pos
+        Part of speech
+    domain : int
+        Domain
     """
 
-    def __init__(self, uid, lemma, pos):
+    def __init__(self, plwordnet, uid, lemma, pos, domain):
+        self._plwordnet = plwordnet
         self._uid = uid
         self._lemma = lemma
         self._pos = pos
+        self._domain = domain
 
-    def id_(self):
+    def uid(self):
         return self._uid
 
     def name(self):
         return self._lemma
 
+    def antonyms(self):
+        return self._plwordnet.antonyms(self.uid())
+
     def pos(self):
-        return self._pos
+        char = self._plwordnet._pos[self._pos].char
+        if char in wordnet.POS:
+            return wordnet.POS[char]
+
+    def domain(self):
+        return self._domain
+
+    def domain_str(self):
+        return self._plwordnet._domains.get(self._domain)

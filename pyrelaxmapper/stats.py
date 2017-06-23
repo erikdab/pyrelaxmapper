@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
 
+logger = logging.getLogger()
+
+
+# Maybe could be functions?
+# But all these variables..
 
 class Stats:
     def __init__(self, status):
@@ -60,12 +66,19 @@ class Stats:
         # logger.info('Source synsets, count: {}'.format(len(self.wnsource.all_synsets())))
         # logger.info('Target synsets, count: {}'.format(len(self.wntarget.all_synsets())))
 
-    def stats_iteration(self):
-        pass
-        # logger.info("time: {}".format(toc - tic))
-        # logger.info("Suggestions: {}".format(suggestions))
-        # logger.info("Accepted by user: {}".format(selected))
-        # logger.info("Selected by algorithm: {}".format(mapped_count))
+    def stats_iteration(self, iteration, print_stats=True):
+        stats_dict = {
+            'monosemic': 'Found {} monosemic mappings in iteration {}'
+                         .format(len(iteration.mappings), iteration.index()),
+            'changes': 'Decreased candidates on {} nodes in iteration {}'
+                       .format(len(iteration.remaining), iteration.index())
+        }
+        if print_stats:
+            self.print_stats(stats_dict)
+        return stats_dict
+
+    def print_stats(self, stats_dict):
+        print('\n'.join(stats_dict.values()))
 
 
 # import random

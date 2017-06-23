@@ -9,13 +9,16 @@ class Domain:
     ----------
     uid : int
         Surrogate key
+    char : str
+        1-2 characters, ID in string format
     name : str
         Domain name
     description : str
         Domain description
     """
-    def __init__(self, uid, name, description):
-        self.id_ = uid
+    def __init__(self, uid, char, name, description):
+        self.uid = uid
+        self.char = char
         self.name = name
         self.description = description
 
@@ -77,8 +80,8 @@ def load_domains(file):
     -------
     domains : list of Domain
     """
-    domains = load_header_file(file, ['id', 'name', 'description'])
-    return [Domain(uid, name, description) for uid, name, description in domains]
+    domains = load_header_file(file, ['id', 'char', 'name', 'description'])
+    return [Domain(uid, char, name, description) for uid, char, name, description in domains]
 
 
 def load_pos(file):

@@ -79,7 +79,7 @@ class Translater(Dictionary):
         return translated, not_translated
 
 
-def find_candidates(source_wn, target_wn, cleaner=lambda x: x, translater=None):
+def find_candidates(source_wn, target_wn, cleaner=lambda x: x, translater=Translater()):
     """Search for candidates between wordnet synsets.
 
     Parameters

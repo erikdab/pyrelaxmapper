@@ -16,9 +16,9 @@ requirements = [
     'colorama>=0.3',        # Required for colors on Windows
     'mysqlclient>=1.3',
     'sqlalchemy>=1.1',
-    'numpy>=1.10',          # Because Python 3.3
-    'cairocffi>=0.8',       # python-igraph prerequisite
-    'python-igraph>=0.7',
+    'numpy>=1.12',
+    # 'cairocffi>=0.8',       # python-igraph prerequisite
+    # 'python-igraph>=0.7',
 ]
 
 test_requirements = [
@@ -53,9 +53,6 @@ setup(
         'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
         'Natural Language :: English',
         'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
