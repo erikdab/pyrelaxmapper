@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """Application cli interface."""
+import os
+import shutil
+from configparser import ConfigParser
+
 import click
 
-from pyrelaxmapper import __version__, commands, conf
+from pyrelaxmapper import __version__, commands, conf, relax
 
 
 @click.group()
@@ -12,40 +16,54 @@ def main():
     pass
 
 
-# TODO: allow make to show help if no action is passed.
 @main.command()
 @click.argument('actions', nargs=-1, required=False)
-@click.option('--cache/--no-cache', default=True, help='Use caches.')
-# ENV FILE
+@click.option('--clean', default=False, help='Use caches.')
 @click.option('--configf', '-c', help='Specify configuration file.')
-def make(actions, cache, configf):
+def make(actions, clean, configf):
     """Make target ACTIONS in correct order. Chainable.
 
     \b
     ACTIONS:
       all      Make all actions.
-      dicts    Make translation dicts.
-      extract  Extract plWordNet data from DB.
-      map      Perform the mapping actions.
-      mono     Map monosemous words (without RL).
-      poly     Map polysemous words (with RL)."""
+      map      Setup and run relaxation labeling.
+      setup    Setup relaxation labeling.
+      relax    Run relaxation labeling.
+      """
     if not actions:
         return
-    parser = conf.load_conf()  # Allow specifying in interface
-    config = conf.Config(parser)
 
-    if not cache and any(action in ['mono', 'poly', 'all'] for action in actions):
-        commands.make_clean(config)
+    click.secho('Loading application configuration.', fg='blue')
+    parser = ConfigParser(configf) if configf else conf.load_conf()
+    config = conf.Config(parser, clean)
+
     if any(action in ['map', 'setup', 'relax', 'all'] for action in actions):
-        relaxer = config.cache(config.file_relaxer(), commands.make_setup, [config])
-        if all(action not in ['setup'] for action in actions):
-            commands.make_relax(relaxer)
+        click.secho('Loading relaxation labeling setup.', fg='blue')
+        relaxer = config.cache('Relaxer', relax.Relaxer, [config], group=config.mapping_group())
+
+        # If not only setup
+        if actions != ['setup']:
+            click.secho('Running relaxation labeling.', fg='blue')
+            relaxer.relax()
 
 
-@main.command('list config')
+@main.command('list-config')
 def list_config():
     """List configuration information."""
     commands.list_config()
+
+
+@main.command('set-logger')
+@click.option('--release/--debug', default=True, help='Logger mode.')
+def set_logger(release):
+    """Copy logger config template to app dir."""
+    if release:
+        click.secho('Set logger mode to RELEASE', color='red')
+    else:
+        click.secho('Set logger mode to DEBUG', color='blue')
+    logging_conf = 'logging.ini' if release else 'logging-debug.ini'
+    shutil.copyfile(os.path.join(conf.dir_pkg_conf(), logging_conf),
+                    conf.file_in_dir(conf.dir_app_data(), 'logging.ini'))
 
 
 if __name__ == "__main__":

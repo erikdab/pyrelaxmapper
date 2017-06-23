@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import logging
+import os
 
 import click
 import numpy as np
 
+from pyrelaxmapper import conf
 from pyrelaxmapper.status import Status
 from pyrelaxmapper.stats import Stats
 
@@ -27,12 +29,17 @@ class Relaxer:
         """Run relaxation labeling"""
         iteration = self.status.iteration()
 
-        self.stats.wordnet_info()
         # Stopping Condition
         while iteration.index() <= 1 or self.status.iterations[-2].has_changes():
             self._iteration_relax()
             self.stats.stat_iteration(iteration)
             iteration = self.status.push_iteration()
+        stats = self.stats.stat_wordnets()
+        stats.update(self.stats.stat_wn_coverage())
+        stats.update(self.stats.stat_translation())
+        stats.update(self.stats.stat_mapping())
+        with open(os.path.join(self.config.cache_dir(), 'stats.csv'), 'w') as file:
+            file.write('\n'.join('{} : {}'.format(key, value) for key, value in stats.items()))
 
     def _iteration_relax(self):
         remaining = self.status.remaining
@@ -43,8 +50,10 @@ class Relaxer:
         with click.progressbar(remaining.values(), label='Relaxing nodes') as nodes:
             for node in nodes:
                 self.constrainer.apply(self.status.mappings, node)
+        # for node in remaining.values():
+        #     self.constrainer.apply(self.status.mappings, node)
 
-        logger.info('Normalizing weights.')
+        # logger.info('Normalizing weights.')
         # for node in iteration.remaining.values():
         # for node in temp:
         #     node.weights = utils.normalized(node.weights)

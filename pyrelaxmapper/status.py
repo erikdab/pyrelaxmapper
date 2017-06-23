@@ -167,15 +167,15 @@ class Status:
 
         self.monosemous = {source_id: target_ids[0] for source_id, target_ids in
                            self.candidates.items() if len(target_ids) == 1}
-        # self.polysemous = {source_id: Node(source_id, target_ids) for source_id, target_ids in
-        #                    enumerate(self._candidates.items()) if len(target_ids) > 1}
-        idx = 0
-        for source_id, target_ids in self.candidates.items():
-            if idx == 3000:
-                break
-            if len(target_ids) > 1:
-                self.polysemous[source_id] = Node(source_id, target_ids)
-                idx += 1
+        self.polysemous = {source_id: Node(source_id, target_ids) for source_id, target_ids in
+                           self.candidates.items() if len(target_ids) > 1}
+        # idx = 0
+        # for source_id, target_ids in self.candidates.items():
+        #     if idx == 3000:
+        #         break
+        #     if len(target_ids) > 1:
+        #         self.polysemous[source_id] = Node(source_id, target_ids)
+        #         idx += 1
 
     def push_iteration(self):
         """Save current iteration's results and create a new iteration.

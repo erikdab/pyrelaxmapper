@@ -25,18 +25,22 @@ logger = logging.getLogger()
 # I/O utilities.
 
 
+def dir_pkg_conf():
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'conf'))
+
+
+def dir_pkg_data():
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
+
+
+def dir_app_data():
+    return click.get_app_dir(APPLICATION)
+
+
 def search_paths():
     """Returns search paths for program configuration files."""
-    return [os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'conf')),
-            os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data')),
-            click.get_app_dir(APPLICATION)]
+    return [dir_pkg_conf(), dir_pkg_data(), dir_app_data()]
 
-  
-def ensure_dir(directory):
-    """File in directory."""
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    return directory
 
 def ensure_dir(directory):
     """File in directory."""
@@ -226,9 +230,6 @@ def load_properties(file):
     config.seek(0, os.SEEK_SET)
     return config
 
-  
-class Config:
-    """Application Configuration.
 
 class Config:
     """Application Configuration.
@@ -249,7 +250,11 @@ class Config:
     # WordNet source builtin types
     WORDNETS = [PLWordNet, PWordNet]
 
-    def __init__(self, parser, source_wn=None, target_wn=None, constrainer=None, translater=None):
+    def __init__(self, parser, clean=False, fast=None, source_wn=None, target_wn=None, constrainer=None,
+                 translater=None):
+        if clean:
+            self.clean_cache()
+
         self._pos = None
         self._dataset_split = 0.8
 
@@ -268,6 +273,8 @@ class Config:
         self._cache_dir = ''
         self._data_dir = ''
         self._results_dir = ''
+
+        self._fast = fast
 
         if parser:
             self.load(parser)
@@ -314,9 +321,9 @@ class Config:
 
         for constraint in self._constraints:
             option = 'weights_{}'.format(constraint)
-            if not parser.has_option(section, option):
-                raise KeyError('Constraint weight missing: [{}][{}]'.format(constraint, option))
-            self._constr_weights[constraint] = parser[section][option]
+            # if not parser.has_option(section, option):
+            #     raise KeyError('Constraint weight missing: [{}][{}]'.format(constraint, option))
+            # self._constr_weights[constraint] = parser[section][option]
 
         if self._source_wn is None:
             self._source_wn = self._wnsource_loader(parser, 'source')
@@ -329,7 +336,7 @@ class Config:
             self._constrainer = Constrainer(self._source_wn, self._target_wn,
                                             self._constraints, self._constr_weights)
 
-        # logging.config.fileConfig(last_in_paths('logging.ini'))
+            # logging.config.fileConfig(last_in_paths('logging.ini'))
 
     def _parse_dirs(self, parser, section, options):
         """Parse directory configuration option.

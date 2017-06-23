@@ -17,17 +17,16 @@ class Stats:
     def __init__(self, status):
         self.status = status
 
-    def stat_mapping(self):
+    def stat_mapping(self, print_stats=True):
         cand = list(self.status.candidates.values())
-        counts = np.array([len(node.labels) for node in cand])
-        n = 10
-        counts_max = counts.argsort()[-n][::-1]
+        counts = np.array([len(node) for node in cand])
+        counts_max = counts.argsort()[-10:][::-1]
         no_translations = [synset.uid() for synset in self.status.source_wn.all_synsets()
                            if synset.uid() not in self.status.candidates]
         stats = {
             'n_nodes': len(self.status.candidates),
             'n_labels': sum(counts),
-            'most_ambiguous': cand[counts_max],
+            # 'most_ambiguous': cand[counts_max],
             'labels_max': 0,
             'labels_min': 0,
             'labels_avg': 0,
@@ -38,9 +37,11 @@ class Stats:
             'n_polysemous': 0,
             'n_no_translations': no_translations,
         }
+        if print_stats:
+            self.print_stats(stats)
         return stats
 
-    def stat_wn_coverage(self):
+    def stat_wn_coverage(self, print_stats=True):
         """Statistics about coverage of the source vs target wordnet.
 
         Returns
@@ -55,6 +56,8 @@ class Stats:
             'monosemous': len(self.status.monosemous),
             'polysemous': len(self.status.polysemous),
         }
+        if print_stats:
+            self.print_stats(stats)
         return stats
 
     def stat_translation(self, print_stats=True):
@@ -78,9 +81,11 @@ class Stats:
             'candidates_min': min_,
             'candidates_max': max_,
         }
+        if print_stats:
+            self.print_stats(stats)
         return stats
 
-    def stat_loading(self):
+    def stat_loading(self, print_stats=True):
         """Statistics about speed of starting up from cached vs not."""
         stats = {
             'cache': 0,
@@ -95,15 +100,14 @@ class Stats:
         stats = {}
         for key, wordnet in wordnets.items():
             stats.update({
-                key+'synsets': 'Translations, count: {}'.format(wordnet.count_synsets()),
-                key+'lunits': 'Translations, count: {}'.format(wordnet.count_lunits())
+                key: wordnet.name_full(),
+                key+' type': wordnet.uid(),
+                key+' synsets': 'Synsets, count: {}'.format(wordnet.count_synsets()),
+                key+' lunits': 'Lunits, count: {}'.format(wordnet.count_lunits())
                 # Hiper/hypo relations
             })
-            logger.info('Translations, count: {}'.format(len(wordnet)))
-            logger.info(
-                'Source synsets, count: {}'.format(len(self.status.source_wn.all_synsets())))
-            logger.info(
-                'Target synsets, count: {}'.format(len(self.status.target_wn.all_synsets())))
+        if print_stats:
+            self.print_stats(stats)
         return stats
 
     def stat_iterations(self, print_stats=True):
@@ -137,4 +141,4 @@ class Stats:
         return stats_dict
 
     def print_stats(self, stats_dict):
-        print('\n'.join(stats_dict.values()))
+        print('\n'.join('{} : {}'.format(key, value) for key, value in stats_dict.items()))
