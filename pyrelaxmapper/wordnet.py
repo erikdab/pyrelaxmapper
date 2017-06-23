@@ -121,14 +121,20 @@ class WordNet:
                 lemmas.setdefault(cleaner(lemma.name()), []).append(synset.uid())
         return lemmas
 
-    def mappings(self, other_wn):
+    def mappings(self, other_wn, recurse=True):
         """Existing mappings with another wordnet.
 
         Parameters
         ----------
-        other_wn : str
+        other_wn : pyrelaxmapper.wordnet.WordNet
             Short name of target WordNet to look for existing mappings to.
+        recurse : bool
+            Whether to check the other wordnet, only once
         """
+        if other_wn == self:
+            return {synset.uid(): synset.uid() for synset in self.all_synsets()}
+        elif recurse:
+            return other_wn.mappings(self, False)
         return None
 
     # Could create unified enum
@@ -150,6 +156,24 @@ class WordNet:
         Returns
         -------
         domains: list of str
+        """
+        pass
+
+    def count_synsets(self):
+        """Count of all synsets.
+
+        Returns
+        -------
+        int
+        """
+        pass
+
+    def count_lunits(self):
+        """Count of all lunits.
+
+        Returns
+        -------
+        int
         """
         pass
 
@@ -339,4 +363,3 @@ class LexicalUnit:
         pos : POS
         """
         pass
-

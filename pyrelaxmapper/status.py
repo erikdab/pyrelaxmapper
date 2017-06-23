@@ -141,7 +141,8 @@ class Status:
         self.mappings = {}
         self.remaining = {}
 
-        self._candidates = {}
+        self.manual = {}
+        self.candidates = {}
         self.monosemous = {}
         self.polysemous = {}
 
@@ -152,17 +153,24 @@ class Status:
 
     def load_cache(self):
         """Find candidates or load them from cache."""
-        self._candidates = self.config.cache(self.config.file_candidates(), dicts.find_candidates,
-                                             [self.source_wn, self.target_wn,
-                                              self.config.cleaner(),
-                                              self.config.translater()])
+        self.candidates = self.config.cache('Relaxer', dicts.find_candidates,
+                                            [self.source_wn, self.target_wn,
+                                             self.config.cleaner(),
+                                             self.config.translater()],
+                                            group=self.config.mapping_group())
+
+        # self.manual = self.config.cache('Manual', self.source_wn.mappings(self.target_wn),
+        #                                     [self.source_wn, self.target_wn,
+        #                                      self.config.cleaner(),
+        #                                      self.config.translater()],
+        #                                     group=self.config.mapping_group())
 
         self.monosemous = {source_id: target_ids[0] for source_id, target_ids in
-                           self._candidates.items() if len(target_ids) == 1}
+                           self.candidates.items() if len(target_ids) == 1}
         # self.polysemous = {source_id: Node(source_id, target_ids) for source_id, target_ids in
         #                    enumerate(self._candidates.items()) if len(target_ids) > 1}
         idx = 0
-        for source_id, target_ids in self._candidates.items():
+        for source_id, target_ids in self.candidates.items():
             if idx == 3000:
                 break
             if len(target_ids) > 1:

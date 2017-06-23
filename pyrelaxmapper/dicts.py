@@ -33,6 +33,15 @@ class Dictionary:
         """
         pass
 
+    def count(self):
+        """Number of translations.
+
+        Returns
+        -------
+        int
+        """
+        return 0
+
 
 class Translater(Dictionary):
     """Lemma to lemmas dictionary aggregator.

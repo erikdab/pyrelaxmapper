@@ -19,6 +19,7 @@ class PLWordNet(wordnet.WordNet):
         Section inside parser which contains plWordNet config.
         Default selects the [source] section.
     """
+
     def __init__(self, parser, section='source'):
         self._config = self.Config(parser, section)
         self._version = ''
@@ -46,6 +47,7 @@ class PLWordNet(wordnet.WordNet):
             Section inside parser which contains plWordNet config.
             Default selects the [source] section.
         """
+
         def __init__(self, parser, section='source'):
             if not parser.has_option(section, 'db-file'):
                 raise KeyError('plWordNet ({}) config requires the "db-file" option.'
@@ -149,18 +151,26 @@ class PLWordNet(wordnet.WordNet):
     def antonyms(self, id_):
         return self._antonyms.get(int(id_), [])
 
-    def mappings(self, other_wn):
+    def mappings(self, other_wn, recurse=True):
         """Existing mappings with another wordnet.
 
         Parameters
         ----------
-        other_wn : str
+        other_wn : pyrelaxmapper.wordnet.WordNet
             Short name of target WordNet to look for existing mappings to.
+        recurse : bool
+            Whether to check the other wordnet, only once
+
+        Returns
+        -------
+        dict
         """
-        if other_wn in ['PWN', 'WordNet']:
+        target_name = other_wn.name()
+        if target_name in ['PWN', 'WordNet']:
             session = self._config.make_session()
-            return [self.synset(row.id_) for row in queries.pwn_mappings(session).all()]
-        return None
+            return {row.id_: row.unitsstr
+                    for row in queries.pwn_mappings(session).all()}
+        return super().mappings(other_wn, False)
 
     def _load_data(self):
         """Load plWordNet data from MySQL."""
@@ -184,8 +194,8 @@ class PLWordNet(wordnet.WordNet):
             # Lexical Units
             # TODO: Glosses
             logger.info('{} Loading lexical units.'.format(type(self).__name__))
-            self._lunits = {lunit.id_:
-                            PLLexicalUnit(self, lunit.id_, lunit.lemma, lunit.pos, lunit.domain)
+            self._lunits = {lunit.id_: PLLexicalUnit(self, lunit.id_, lunit.lemma, lunit.pos,
+                                                     lunit.domain)
                             for lunit in queries.lunits(session, pos)}
 
             # Synsets
@@ -205,21 +215,18 @@ class PLWordNet(wordnet.WordNet):
             logger.info('{} Loading hyper/hypo relations.'.format(type(self).__name__))
             self._hypernyms = {}
             self._hyponyms = {}
-            hyper_relid = self._reltypes['hiperonimia'].id_
-            hypo_relid = self._reltypes['hiponimia'].id_
-            for hypernym in queries.synset_relations(session, self._reltypes['hiperonimia'].id_, pos):
+            for hypernym in queries.synset_relations(session, self._reltypes['hiperonimia'].id_,
+                                                     pos):
                 self._hypernyms.setdefault(hypernym.child_id, []).append(
                     self.synset(hypernym.parent_id))
             for hyponym in queries.synset_relations(session, self._reltypes['hiponimia'].id_, pos):
                 self._hyponyms.setdefault(hyponym.child_id, []).append(
                     self.synset(hyponym.parent_id))
 
-            logger.info('{} Calculating hyponym layers.'
-                        .format(type(self).__name__))
+            logger.info('{} Calculating hyponym layers.'.format(type(self).__name__))
             self._hyponym_layers = {synset.uid(): synset.find_hyponym_layers()
                                     for synset in self._synsets.values()}
-            logger.info('{} Calculating hipernym paths.'
-                        .format(type(self).__name__))
+            logger.info('{} Calculating hipernym paths.'.format(type(self).__name__))
             self._hypernym_paths = {synset.uid(): self._find_hypernym_paths(synset)
                                     for synset in self._synsets.values()}
 
@@ -257,6 +264,24 @@ class PLWordNet(wordnet.WordNet):
 
         return [hypernym_path[0] for hypernym_path in hypernym_paths] if idx else hypernym_paths[0]
 
+    def count_synsets(self):
+        """Count of all synsets.
+
+        Returns
+        -------
+        int
+        """
+        return len(self._synsets)
+
+    def count_lunits(self):
+        """Count of all lunits.
+
+        Returns
+        -------
+        int
+        """
+        return len(self._lunits)
+
 
 class PLSynset(wordnet.Synset):
     """plWordNet Synset for the MySQL plWN database.
@@ -271,6 +296,7 @@ class PLSynset(wordnet.Synset):
     lunits: dict
         Lexical units
     """
+
     def __init__(self, plwordnet, uid, definition, lunits):
         self._plwordnet = plwordnet
         self._uid = uid

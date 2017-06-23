@@ -394,9 +394,5 @@ class Config:
     def clean_cache(self):
         clean_directory(self.cache_dir())
 
-    def file_candidates(self):
-        return '({} -> {}) Candidates'.format(self.source_wn().name(), self.target_wn().name())
-
-    def file_relaxer(self):
-        return '({} -> {}) Relaxer'.format(self.source_wn().name(), self.target_wn().name())
-
+    def mapping_group(self):
+        return '{} -> {}'.format(self.source_wn().name(), self.target_wn().name())
