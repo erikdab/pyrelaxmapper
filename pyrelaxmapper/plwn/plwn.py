@@ -19,7 +19,6 @@ class PLWordNet(wordnet.WordNet):
         Section inside parser which contains plWordNet config.
         Default selects the [source] section.
     """
-
     def __init__(self, parser, section='source'):
         self._config = self.Config(parser, section)
         self._version = ''
@@ -47,7 +46,6 @@ class PLWordNet(wordnet.WordNet):
             Section inside parser which contains plWordNet config.
             Default selects the [source] section.
         """
-
         def __init__(self, parser, section='source'):
             if not parser.has_option(section, 'db-file'):
                 raise KeyError('plWordNet ({}) config requires the "db-file" option.'
@@ -172,6 +170,7 @@ class PLWordNet(wordnet.WordNet):
                     for row in queries.pwn_mappings(session).all()}
         return super().mappings(other_wn, False)
 
+
     def _load_data(self):
         """Load plWordNet data from MySQL."""
 
@@ -217,6 +216,7 @@ class PLWordNet(wordnet.WordNet):
             self._hyponyms = {}
             for hypernym in queries.synset_relations(session, self._reltypes['hiperonimia'].id_,
                                                      pos):
+
                 self._hypernyms.setdefault(hypernym.child_id, []).append(
                     self.synset(hypernym.parent_id))
             for hyponym in queries.synset_relations(session, self._reltypes['hiponimia'].id_, pos):
@@ -227,6 +227,7 @@ class PLWordNet(wordnet.WordNet):
             self._hyponym_layers = {synset.uid(): synset.find_hyponym_layers()
                                     for synset in self._synsets.values()}
             logger.info('{} Calculating hipernym paths.'.format(type(self).__name__))
+
             self._hypernym_paths = {synset.uid(): self._find_hypernym_paths(synset)
                                     for synset in self._synsets.values()}
 
@@ -296,7 +297,6 @@ class PLSynset(wordnet.Synset):
     lunits: dict
         Lexical units
     """
-
     def __init__(self, plwordnet, uid, definition, lunits):
         self._plwordnet = plwordnet
         self._uid = uid

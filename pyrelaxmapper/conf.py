@@ -31,6 +31,12 @@ def search_paths():
             os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data')),
             click.get_app_dir(APPLICATION)]
 
+  
+def ensure_dir(directory):
+    """File in directory."""
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    return directory
 
 def ensure_dir(directory):
     """File in directory."""
@@ -220,6 +226,9 @@ def load_properties(file):
     config.seek(0, os.SEEK_SET)
     return config
 
+  
+class Config:
+    """Application Configuration.
 
 class Config:
     """Application Configuration.

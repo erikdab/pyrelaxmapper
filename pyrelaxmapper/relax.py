@@ -45,6 +45,9 @@ class Relaxer:
                 self.constrainer.apply(self.status.mappings, node)
 
         logger.info('Normalizing weights.')
+        # for node in iteration.remaining.values():
+        # for node in temp:
+        #     node.weights = utils.normalized(node.weights)
 
         logger.info('Saving changes.')
         # for node in iteration.remaining.values():
