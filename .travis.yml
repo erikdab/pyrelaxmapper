@@ -19,16 +19,13 @@ deploy:
       b25oMW5kaWNtcng3L3RXZzY5K2ZzZEV6Y3hBYXhRZ2w5NzdUNk5LVWpyclY4Vllna2w4UHc0eWM9
   true:
     # This means that we only push the package once (in py27 env)
-    condition: $TOXENV == py27
+    condition: $TOXENV == py34
     repo: erikdab/pyrelaxmapper
     tags: true
 env:
 # Build required: https://github.com/travis-ci/travis-ci/issues/4990
-# - TOXENV=py36
 - TOXENV=py35
 - TOXENV=py34
-- TOXENV=py33
-- TOXENV=py27
 - TOXENV=pypy35
 install: pip install -U tox
 language: python
