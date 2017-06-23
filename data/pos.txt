@@ -1,3 +1,4 @@
+
 id	char name	fullname	domain_ids
 0	0   unknown	nieznana	49;3;37;7;16;34;32;40;42;31;36;28;8;12;4;35;46;14;29;23;45;13;25;15;44;18;43;10;21;22;39;1;20;38;17;27;41;26;47;9;33;6;11;19;30;5;24
 1	v   verb	czasownik	49;37;34;32;40;42;31;36;35;29;43;39;38;41;33;30
@@ -8,4 +9,3 @@ id	char name	fullname	domain_ids
 6	vn  subst_pwn	rzeczownik pwn	49;3;7;16;28;8;12;4;14;23;13;25;15;18;10;21;22;20;17;27;26;47;9;6;11;19;5;24
 7	va  adv_pwn	przysłówek pwn	49;2
 8	vr  adj_pwn	przymiotnik pwn	49;0;46;45;44;1
-
