@@ -91,6 +91,7 @@ class Synset(Base):
     __tablename__ = 'synset'
 
     id_ = Column('id', Integer, primary_key=True)
+    definition = Column(String(1024))
     unitsstr = Column(String(1024))
 
 

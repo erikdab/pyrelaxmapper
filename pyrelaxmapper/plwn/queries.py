@@ -3,13 +3,13 @@
 from sqlalchemy import orm
 from sqlalchemy.sql import func, expression
 
-from . import models
-from .models import LexicalUnit, Synset, SynsetRelation, RelationType, UnitSynset, LexicalRelation
+from pyrelaxmapper.plwn.models import (Parameter, LexicalUnit, Synset, SynsetRelation,
+                                       RelationType, UnitSynset, LexicalRelation)
 
 
 def version(session):
     """Query plWordNet for format version."""
-    return session.query(models.Parameter).filter_by(name='programversion').first().value
+    return session.query(Parameter).filter_by(name='programversion').first().value
 
 
 def reltypes(session, types=None):
@@ -95,7 +95,7 @@ def lunits(session, pos=None):
     """
     if not pos:
         pos = [2]
-    return (session.query(LexicalUnit.id_, LexicalUnit.lemma, LexicalUnit.pos)
+    return (session.query(LexicalUnit)
             .filter(LexicalUnit.pos.in_(pos))
             .order_by(LexicalUnit.id_)
             )
@@ -112,7 +112,7 @@ def synsets(session, pos=None):
     """
     if not pos:
         pos = [2]
-    return (session.query(Synset.id_,
+    return (session.query(Synset.id_, Synset.definition,
                           expression.label('lex_ids', func.group_concat(UnitSynset.lex_id)),
                           expression.label('unitindexes', func.group_concat(UnitSynset.unitindex))
                           )
@@ -153,13 +153,13 @@ def synset_relations(session, types, pos=None):
     return query
 
 
-def lexical_relations(session, rel_types, pos=None):
+def lexical_relations(session, reltypes, pos=None):
     """Query for hipernyms.
 
     Parameters
     ----------
     session : orm.session.Session
-    rel_types : list
+    reltypes : list
         RelationType to select
     pos : list
         Parts of speech to extract. If empty, extract all.
@@ -168,14 +168,18 @@ def lexical_relations(session, rel_types, pos=None):
                            LexicalRelation.rel_id)
              .order_by(LexicalRelation.parent_id)
              )
-    if rel_types:
-        rel_types = rel_types if isinstance(rel_types, list) else [rel_types]
-        query = query.filter(LexicalRelation.rel_id.in_(rel_types))
+    if reltypes:
+        reltypes = reltypes if isinstance(reltypes, list) else [reltypes]
+        query = (query
+                 .join(RelationType)
+                 .filter(RelationType.id_.in_(reltypes) |
+                         RelationType.parent_id.in_(reltypes)))
     if pos:
         pos = pos if isinstance(pos, list) else [pos]
         query = (query
                  .join(LexicalUnit, LexicalRelation.parent_id == LexicalUnit.id_)
                  .filter(LexicalUnit.pos.in_(pos))
-                 .group_by(LexicalRelation.parent_id, LexicalRelation.child_id)
+                 .group_by(LexicalRelation.parent_id, LexicalRelation.child_id,
+                           LexicalRelation.rel_id)
                  )
     return query

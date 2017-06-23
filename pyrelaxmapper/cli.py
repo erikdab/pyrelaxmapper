@@ -2,7 +2,7 @@
 """Application cli interface."""
 import click
 
-from pyrelaxmapper import __version__, commands
+from pyrelaxmapper import __version__, commands, conf
 
 
 @click.group()
@@ -15,8 +15,10 @@ def main():
 # TODO: allow make to show help if no action is passed.
 @main.command()
 @click.argument('actions', nargs=-1, required=False)
-@click.option('--clean/--no-clean', default=True, help='Clean old mapping output.')
-def make(actions, clean):
+@click.option('--cache/--no-cache', default=True, help='Use caches.')
+# ENV FILE
+@click.option('--configf', '-c', help='Specify configuration file.')
+def make(actions, cache, configf):
     """Make target ACTIONS in correct order. Chainable.
 
     \b
@@ -27,28 +29,21 @@ def make(actions, clean):
       map      Perform the mapping actions.
       mono     Map monosemous words (without RL).
       poly     Map polysemous words (with RL)."""
-    if any(action in ['dicts', 'all'] for action in actions):
-        commands.make_dicts()
-    if any(action in ['extract', 'all'] for action in actions):
-        commands.make_extract()
-    # if any(action in ['trans', 'all'] for action in actions):
-    #     commands.make_translate()
-    # if clean and any(action in ['mono', 'poly', 'all'] for action in actions):
-    #     commands.make_clean()
-    if any(action in ['map', 'mono', 'all'] for action in actions):
-        commands.make_mono()
-    if any(action in ['map', 'poly', 'all'] for action in actions):
-        commands.make_poly()
+    if not actions:
+        return
+    parser = conf.load_conf()  # Allow specifying in interface
+    config = conf.Config(parser)
+
+    if not cache and any(action in ['mono', 'poly', 'all'] for action in actions):
+        commands.make_clean(config)
+    if any(action in ['map', 'setup', 'relax', 'all'] for action in actions):
+        relaxer = config.cache(config.file_relaxer(), commands.make_setup, [config])
+        if all(action not in ['setup'] for action in actions):
+            commands.make_relax(relaxer)
 
 
-@main.command()
-def db():
-    """List database information."""
-    commands.db_info()
-
-
-@main.command()
-def config():
+@main.command('list config')
+def list_config():
     """List configuration information."""
     commands.list_config()
 

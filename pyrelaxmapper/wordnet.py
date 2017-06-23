@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
 """WordNet interface."""
+from enum import Enum
+
+
+class POS(Enum):
+    """Parts of speech."""
+    NOUN = 'n'
+    VERB = 'v'
+    ADV = 'a'
+    ADJ = 'r'
+    UNSET = '_'
 
 
 class WordNet:
@@ -125,7 +135,7 @@ class WordNet:
     def pos(self):
         """Parts of speech.
 
-        Key is unified string pos.
+        Key is POS
         Value is the id as stored in the wordnet.
 
         Returns
@@ -177,7 +187,7 @@ class Synset:
 
         Returns
         -------
-        lemmas : list of Lemma
+        lemmas : list of LexicalUnit
         """
         pass
 
@@ -283,18 +293,17 @@ class Synset:
         """
         pass
 
-    # TODO: Need to standard on int/str/etc.
     def pos(self):
-        """Unified part of speech id.
+        """Part of speech.
 
         Returns
         -------
-        pos : str
+        pos : POS
         """
         pass
 
 
-class Lemma:
+class LexicalUnit:
     """WordNet Lemma interface.
 
     Aims to provide a unified interface for accessing WordNet lemma
@@ -323,10 +332,11 @@ class Lemma:
         pass
 
     def pos(self):
-        """Unified part of speech id.
+        """Part of speech.
 
         Returns
         -------
-        pos : str
+        pos : POS
         """
         pass
+
