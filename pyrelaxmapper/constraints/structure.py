@@ -1,71 +1,5 @@
 # -*- coding: utf-8 -*-
-import logging
-
-logger = logging.getLogger()
-
-
-class Constraint:
-    def __init__(self, constrainer):
-        self.constrainer = constrainer
-        self.orig = self.constrainer.orig
-        self.dest = self.constrainer.dest
-        self.weights = self.constrainer.weights()
-
-    def apply(self, mapped, node):
-        pass
-
-    def uid(self):
-        pass
-
-    @staticmethod
-    def isconstraint(constraint):
-        pass
-
-#######################################################################
-# Contents Constraints
-
-
-class WordsConstraint(Constraint):
-    RW = 0.1
-    EMPTYITEMSWEIGHT = 0.5
-
-    def apply(self, mapped, node):
-        power_match = False
-        self.dictionary = {}
-        source = self.orig.synset(node.source())
-        source_lemmas = source.lemma_names()
-        source_translations = (lemma for source_lemma in source_lemmas
-                               for lemma in self.dictionary[source_lemma])
-
-        for idx, target_name in enumerate(node.labels()):
-            target = self.dest.synset(target_name)
-            target_lemmas = target.lemma_names()
-
-            # Count of matches
-            m = sum(lemma in source_translations for lemma in target_lemmas)
-
-            # Power matches
-            if power_match:
-                # How close are the synsets
-                f = len(source_lemmas) + len(target_lemmas) - 2 * m
-                if m + f != 0:
-                    weight = self.RW * (m ** 3 / (m + f) ** 2)
-                else:
-                    weight = self.EMPTYITEMSWEIGHT
-            else:
-                weight = m * self.RW
-
-            node.add_weight(idx, weight)
-
-
-class GlossConstraint(Constraint):
-    def apply(self, mapped, node):
-        pass
-
-
-#######################################################################
-# Structural Constraints
-
+from pyrelaxmapper.constraints import Constraint
 
 # class AntonymsConstraint(Constraint):
 #     def apply(self, mapped, node):
@@ -130,6 +64,7 @@ class HyperHypoConstraint(Constraint):
         O - hypo
         B - both
     """
+
     # Remove
     def hipo(self, synset):
         """Find hiponyms for synset.
@@ -366,53 +301,3 @@ class HyperHypoConstraint(Constraint):
                 # 10 > 6 = srednia liczba kandydatow (patrz artykul)
                 weight_val = (20. / (len(node.weights) ** 2)) / weight_val
                 node.add_weight(idx, weight_val)
-
-
-# WNConfig
-class Constrainer:
-    """Relaxation labeling constraint aggregator.
-
-    Parameters
-    ----------
-    orig : pyrelaxmapper.wordnet.WordNet
-    dest : pyrelaxmapper.wordnet.WordNet
-    constraints : list of str
-    constr_weights : dict
-    """
-    def __init__(self, orig, dest, constraints, constr_weights):
-        self.orig = orig
-        self.dest = dest
-        self._constr = []
-        self._constr_str = constraints
-        self._constr_types = self.CONSTRAINTS[:]
-        self._constr_weights = constr_weights
-        self._setup_constraints()
-
-    CONSTRAINTS = [HyperHypoConstraint, WordsConstraint, GlossConstraint,
-                   DaughtersConstraint]
-
-    # Aggregate or not
-    def _setup_constraints(self):
-        # constr_str = self._constr_str
-        # if not constr_str:
-        #     return
-        # constr_weights = self._constr_weights
-        # for constr_uid in constr_str:
-        #     for constr_cls in self._constr_types:
-        #         if constr_cls.isconstraint(constr_uid):
-        #             self._constr.append(constr_cls(constr_uid, constr_weights[constr_uid]))
-        self._constr.append(HyperHypoConstraint(self))
-
-    def apply(self, mapped, node):
-        """Apply constraints to node.
-
-        Parameters
-        ----------
-        mapped : dict
-        node : list of Node
-        """
-        for constraint in self._constr:
-            constraint.apply(mapped, node)
-
-    def weights(self):
-        return self._constr_weights

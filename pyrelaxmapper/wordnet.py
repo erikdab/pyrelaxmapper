@@ -17,10 +17,20 @@ class WordNet:
 
     Aims to provide a unified interface for accessing WordNet
     information to simplify writing code for multiple WordNets.
+
+    Parameters
+    ----------
+    parser : configparser.ConfigParser
+        Config Parser with plWordNet config.
+    section : str, optional
+        Section inside parser which contains plWordNet config.
     """
+    def __init__(self, parser, section, preload=True):
+        if preload:
+            self.load()
+
     def __repr__(self):
-        info = "{}({})" if isinstance(self.version(), int) else "{}('{}')"
-        return info.format(type(self).__name__, self.version())
+        return "{}({})".format(type(self).__name__, repr(self.version()))
 
     @staticmethod
     def name_full():
@@ -51,6 +61,9 @@ class WordNet:
         str
         """
         pass
+
+    def __hash__(self):
+        return hash((self.uid(), self.lang(), self.version()))
 
     def lang(self):
         """WordNet core language.
@@ -166,7 +179,7 @@ class WordNet:
         -------
         int
         """
-        pass
+        return 0
 
     def count_lunits(self):
         """Count of all lunits.
@@ -175,7 +188,28 @@ class WordNet:
         -------
         int
         """
-        pass
+        return 0
+
+    def count_lemmas(self):
+        """Count of all lemmas.
+
+        Returns
+        -------
+        int
+        """
+        return 0
+
+    def load(self):
+        """Loads wordnet data and returns self."""
+        return self
+
+    def loaded(self):
+        """Was wordnet loaded.
+
+        Returns
+        -------
+        bool"""
+        return True
 
 
 class Synset:
@@ -185,11 +219,12 @@ class Synset:
     information to simplify writing code for multiple WordNets.
     """
     def __repr__(self):
-        info = "{}({})" if isinstance(self.name(), int) else "{}('{}')"
-        return info.format(type(self).__name__, self.name())
+        # Can list unitindex too!
+        ellipsis_ = ',...' if self.count() > 1 else ''
+        return "{}({})[{}{}]".format(type(self).__name__, self.uid(), self.name(), ellipsis_)
 
     def uid(self):
-        """Synset unique identifier in database / corpus.
+        """Synset unique identifier in wordnet dataset.
 
         Returns
         -------
@@ -198,13 +233,22 @@ class Synset:
         pass
 
     def name(self):
-        """Name.
+        """Name. Default value: first lemma.
 
         Returns
         -------
         name : str
         """
-        pass
+        return next(self.lemmas()).name() if self.count() else ''
+
+    def count(self):
+        """Lemma count.
+
+        Returns
+        -------
+        int
+        """
+        return 0
 
     def lemmas(self):
         """Lemmas.
@@ -223,6 +267,12 @@ class Synset:
         lemma_names : list of str
         """
         pass
+
+    @staticmethod
+    def get_uids(synsets):
+        if all(isinstance(el, list) for el in synsets):
+            return [[synset.uid() for synset in group] for group in synsets]
+        return [synset.uid() for synset in synsets]
 
     def hypernyms(self):
         """Hypernyms.
@@ -246,7 +296,7 @@ class Synset:
         """
         pass
 
-    def hypernym_layers(self):
+    def hypernym_layers(self, uids=False):
         """Hypernym paths.
 
         Returns
@@ -277,7 +327,7 @@ class Synset:
         """
         pass
 
-    def hyponym_layers(self):
+    def hyponym_layers(self, uids=False):
         """Hyponym layers.
 
         Returns
@@ -334,8 +384,7 @@ class LexicalUnit:
     information to simplify writing code for multiple WordNets.
     """
     def __repr__(self):
-        info = "{}({})" if isinstance(self.name(), int) else "{}('{}')"
-        return info.format(type(self).__name__, self.name())
+        return "{}({})".format(type(self).__name__, self.name())
 
     def uid(self):
         """Lemma unique identifier in database / corpus.
@@ -363,4 +412,3 @@ class LexicalUnit:
         pos : POS
         """
         pass
-

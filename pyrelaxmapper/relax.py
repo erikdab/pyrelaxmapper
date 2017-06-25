@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
+import csv
 import logging
-import os
+import sys
 
 import click
 import numpy as np
 
-from pyrelaxmapper import conf
-from pyrelaxmapper.status import Status
 from pyrelaxmapper.stats import Stats
+from pyrelaxmapper.status import Status
 
 logger = logging.getLogger()
 
@@ -19,49 +19,61 @@ class Relaxer:
     ----------
     config : pyrelaxmapper.conf.Config
     """
+
     def __init__(self, config):
         self.config = config
+        # Load on demand (because of eval_relax)
+        # Or creat
         self.constrainer = config.constrainer()
         self.status = Status(self.config)
         self.stats = Stats(self.status)
 
+    def save_stats(self, file):
+        writer = csv.writer(file, delimiter='\t')
+        writer.writerows(self.stats.stat_final().items())
+
     def relax(self):
-        """Run relaxation labeling"""
+        """Run relaxation labeling with all constraints in config."""
+        self._relax_loop(self.constrainer)
+
+    def eval_relax(self):
+        """Run relaxation labeling evaluating constraint combinations."""
+        # Series of combinations selected by the user!
+        # Create
+        # Maybe groups? And only all elements in groups are iterated over
+        for constraint in []:
+            self._relax_loop(self.constrainer)
+
+    def _relax_loop(self, constrainer):
         iteration = self.status.iteration()
-
-        # Stopping Condition
+        writer = csv.writer(sys.stdout, delimiter='\t')
         while iteration.index() <= 1 or self.status.iterations[-2].has_changes():
-            self._iteration_relax()
-            self.stats.stat_iteration(iteration)
+            iteration.start('iteration')
+            click.secho('Iteration: {}'.format(iteration.index()), fg='blue')
+            self._relax(constrainer)
+            iteration.stop('iteration')
+            writer.writerows(self.stats.stat_iteration(iteration, True).items())
+            # sys.exit(1)
+            if not iteration.has_changes():
+                break
             iteration = self.status.push_iteration()
-        stats = self.stats.stat_wordnets()
-        stats.update(self.stats.stat_wn_coverage())
-        stats.update(self.stats.stat_translation())
-        stats.update(self.stats.stat_mapping())
-        with open(os.path.join(self.config.cache_dir(), 'stats.csv'), 'w') as file:
-            file.write('\n'.join('{} : {}'.format(key, value) for key, value in stats.items()))
+        writer.writerows(self.stats.stat_total().items())
 
-    def _iteration_relax(self):
-        remaining = self.status.remaining
-        logger.info('Resetting weights.')
-        for node in remaining.values():
-            node.weights_reset()
+    def _relax(self, constrainer):
+        with click.progressbar(self.status.remaining.values(), label='Constraining') as nodes:
+            # for node in nodes:
+            for idx, node in enumerate(nodes):
+                # if idx > 0 and idx % 50 == 0:
+                #     return
+                # Perhaps will find CHANGE rather than reset? Look at article
+                node.weights_reset()
 
-        with click.progressbar(remaining.values(), label='Relaxing nodes') as nodes:
-            for node in nodes:
-                self.constrainer.apply(self.status.mappings, node)
-        # for node in remaining.values():
-        #     self.constrainer.apply(self.status.mappings, node)
+                constrainer.apply(self.status.mappings, node)
 
-        # logger.info('Normalizing weights.')
-        # for node in iteration.remaining.values():
-        # for node in temp:
-        #     node.weights = utils.normalized(node.weights)
-
-        logger.info('Saving changes.')
-        # for node in iteration.remaining.values():
-        for node in remaining.values():
-            self._iteration_changes(node)
+                # Makes sense, doesn't work.
+                # node.weights = utils.normalized(node.weights)
+                # Perhaps will find CHANGE rather than drop all others?
+                self._iteration_changes(node)
 
     def _iteration_changes(self, node):
         """Write results for changed and not changed mappings."""
@@ -84,4 +96,5 @@ class Relaxer:
             iteration.mappings[node.source()] = node.labels()[maxind[0]]
         else:
             # Polysemic lesson
+            logger.info('Polysemic mapping done!')
             iteration.remaining[node.source()] = [node.labels()[idx] for idx in maxind]

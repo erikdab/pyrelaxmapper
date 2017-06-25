@@ -5,6 +5,7 @@ import logging
 logger = logging.getLogger()
 
 
+# TODO: Make multilingual work.
 class Dictionary:
     """Lemma to lemmas translation dictionary.
 

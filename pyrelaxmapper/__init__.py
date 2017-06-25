@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging.config
 
-from pyrelaxmapper import conf
+from pyrelaxmapper import fileutils
 
-logging.config.fileConfig(conf.last_in_paths('logging.ini'))
+logging.config.fileConfig(fileutils.last_in_paths('logging.ini'))
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 __author__ = """Erik David Burnell"""

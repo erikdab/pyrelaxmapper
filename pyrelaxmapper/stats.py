@@ -17,50 +17,83 @@ class Stats:
     def __init__(self, status):
         self.status = status
 
-    def stat_mapping(self, print_stats=True):
-        cand = list(self.status.candidates.values())
-        counts = np.array([len(node) for node in cand])
-        counts_max = counts.argsort()[-10:][::-1]
+    def stat_performance(self):
+        # cache vs. live
+        stats = {
+            'cache': 0,
+            'live': 0
+        }
+        return stats
+
+    def stat_iteration(self, iteration=None, full=False):
+        if not iteration:
+            iteration = self.status.iteration()
+        key = 'iteration'
+        stats = {
+            'completed': int(iteration.count[key]),
+            'monosemic': len(iteration.mappings),
+            # 'changes': len(iteration.remaining),
+            'time': '{:.5f}'.format(float(iteration.time_sum[key])),
+            'avg': '{:.5f}'.format(iteration.avg(key)),
+        }
+        if len(iteration.remaining):
+            stats['changes'] = len(iteration.remaining)
+        if full:
+            for key in iteration.time.keys():
+                if key == 'iteration':
+                    continue
+                stats.update({
+                    key+' time': '{:.5f}'.format(float(iteration.time_sum[key])),
+                    key+' count': iteration.count[key],
+                    key+' time_avg': '{:.5f}'.format(iteration.avg(key)),
+                })
+        return stats
+
+    def stat_iterations(self):
+        stats = {}
+        for iteration in self.status.iterations:
+            stats[iteration.index()] = self.stat_iteration(iteration)
+        stats['sum'] = sum(it.time_sum['iteration'] for it in self.status.iterations)
+        return stats
+
+    def stat_total(self):
+        stats = {}
+        stats['sum'] = sum(it.time_sum['iteration'] for it in self.status.iterations)
+        return stats
+
+    def stat_final(self):
+        stats = {}
+
+        # WordNets
+        wordnets = {'source': self.status.source_wn}
+        if self.status.source_wn != self.status.target_wn:
+            wordnets['target'] = self.status.target_wn
+        for key, wordnet in wordnets.items():
+            stats.update({
+                key: wordnet.name_full(),
+                key + ' type': wordnet.uid(),
+                key + ' lang': wordnet.lang(),
+                key + ' synsets': wordnet.count_synsets(),
+                key + ' lunits': wordnet.count_lunits(),
+                key + ' uniq lemmas': wordnet.count_lemmas(),
+                # Hiper/hypo relations
+            })
+
+        # Mapping
+        cand = list(self.status.candidates.items())
+        counts = np.array([len(node[1]) for node in cand])
+        counts_max = counts.argsort()[-5:][::-1]
+        most_ambiguous = [
+            (cand[idx][0], len(cand[idx][1]),
+             next(self.status.config.source_wn().synset(cand[idx][0]).lemma_names()))
+            for idx in counts_max]
         no_translations = [synset.uid() for synset in self.status.source_wn.all_synsets()
                            if synset.uid() not in self.status.candidates]
-        stats = {
-            'n_nodes': len(self.status.candidates),
-            'n_labels': sum(counts),
-            # 'most_ambiguous': cand[counts_max],
-            'labels_max': 0,
-            'labels_min': 0,
-            'labels_avg': 0,
-            'n_connections_per_type': 0,
-            'n_stable': 0,
-            'n_completed': 0,
-            'n_monosemous': 0,
-            'n_polysemous': 0,
-            'n_no_translations': no_translations,
-        }
-        if print_stats:
-            self.print_stats(stats)
-        return stats
 
-    def stat_wn_coverage(self, print_stats=True):
-        """Statistics about coverage of the source vs target wordnet.
+        no_candidates = [source_id for source_id in self.status.polysemous if
+                         source_id not in self.status.relaxed]
 
-        Returns
-        -------
-        dict
-        """
-        manual = self.status.source_wn.mappings(self.status.target_wn)
-        stats = {
-            'all_synsets': self.status.source_wn.count_synsets(),
-            'manual': len(manual),
-            'candidates': len(self.status.candidates),
-            'monosemous': len(self.status.monosemous),
-            'polysemous': len(self.status.polysemous),
-        }
-        if print_stats:
-            self.print_stats(stats)
-        return stats
-
-    def stat_translation(self, print_stats=True):
+        # Graph with how many of how many
         avg = 0.0
         max_ = None
         min_ = None
@@ -73,72 +106,36 @@ class Stats:
                 min_ = count
             avg += count
         avg = avg / len(candidates)
-        stats = {
-            'translations': 'Translations, count: {}'
-            .format(self.status.config.translater().count()),
-            # Source wordnet coverage
-            'candidates_avg': avg,
-            'candidates_min': min_,
-            'candidates_max': max_,
-        }
-        if print_stats:
-            self.print_stats(stats)
+
+        # Coverage
+        manual = self.status.source_wn.mappings(self.status.target_wn)
+
+        # Accuracy, monosemous, polisemous
+        # Use distance later!
+        accuracy = sum(target_id == self.status.manual[source_id]
+                       for source_id, target_id in self.status.relaxed.items())
+        accuracy = accuracy / len(self.status.relaxed) if self.status.relaxed else 0
+
+        # Dictionary
+        stats.update({
+            'n_nodes': len(self.status.candidates),
+            'n_labels': sum(counts),
+            'most_ambiguous': most_ambiguous,
+            'manual': len(manual),
+            'labels_max': max_,
+            'labels_min': min_,
+            'labels_avg': avg,
+            'n_connections_per_type': 0,
+            'n_stable': 0,
+            'n_completed': 0,
+            'relaxed': len(self.status.relaxed),
+            'accuracy': accuracy,
+            'n_monosemous': len(self.status.monosemous),
+            'n_polysemous': len(self.status.polysemous),
+            'n_no_translations': len(no_translations),
+            'n_no_candidates': len(no_candidates),
+            'dict_lemmas': self.status.config.translater.count(),
+        })
+
+        stats.update(self.stat_iterations())
         return stats
-
-    def stat_loading(self, print_stats=True):
-        """Statistics about speed of starting up from cached vs not."""
-        stats = {
-            'cache': 0,
-            'live': 0
-        }
-        return stats
-
-    def stat_wordnets(self, print_stats=True):
-        wordnets = {'source': self.status.source_wn}
-        if self.status.source_wn != self.status.target_wn:
-            wordnets['target'] = self.status.target_wn
-        stats = {}
-        for key, wordnet in wordnets.items():
-            stats.update({
-                key: wordnet.name_full(),
-                key+' type': wordnet.uid(),
-                key+' synsets': 'Synsets, count: {}'.format(wordnet.count_synsets()),
-                key+' lunits': 'Lunits, count: {}'.format(wordnet.count_lunits())
-                # Hiper/hypo relations
-            })
-        if print_stats:
-            self.print_stats(stats)
-        return stats
-
-    def stat_iterations(self, print_stats=True):
-        stats = {}
-        for iteration in self.status.iterations.values():
-            stats.update({iteration.index(): self.stat_iteration(iteration, False)})
-        return stats
-
-    def stat_iteration(self, iteration=None, print_stats=True):
-        """Statistics about an iteration of the relaxational labeling algorithm.
-
-        Parameters
-        ----------
-        iteration : pyrelaxmapper.stats.Iteration
-        print_stats : boolean
-
-        Returns
-        -------
-        dict
-        """
-        if not iteration:
-            iteration = self.status.iteration()
-        stats_dict = {
-            'monosemic': 'Found {} monosemic mappings in iteration {}'
-            .format(len(iteration.mappings), iteration.index()),
-            'changes': 'Decreased candidates on {} nodes in iteration {}'
-            .format(len(iteration.remaining), iteration.index())
-        }
-        if print_stats:
-            self.print_stats(stats_dict)
-        return stats_dict
-
-    def print_stats(self, stats_dict):
-        print('\n'.join('{} : {}'.format(key, value) for key, value in stats_dict.items()))

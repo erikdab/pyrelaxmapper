@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import io
-import os
 import logging
+import os
 import re
 from configparser import ConfigParser
 
@@ -12,6 +12,44 @@ import sqlalchemy.orm
 
 logger = logging.getLogger()
 
+
+#######################################################################
+# Enums
+
+def enum_factory(enum_type, values):
+    """Create Enum from string char.
+
+    Parameters
+    ----------
+    enum_type : Enum
+    values
+        Value or values.
+
+    Returns
+    -------
+    array_like
+    """
+    if not values:
+        return []
+
+    if not isinstance(values, list) and not isinstance(values, set):
+        values = [values]
+
+    enums = []
+    for enum in enum_type:
+        if enum.value in values:
+            enums.append(enum)
+
+    if not enums:
+        enum_types = [e.value for e in enum_type]
+        raise ValueError('({}): req. one of: {}, received: {}'
+                         .format(enum_type.__name__, enum_types, values))
+
+    return enums
+
+
+#######################################################################
+# String functions
 
 def clean(term, spaces=False):
     """Clean symbols for term."""
@@ -54,7 +92,24 @@ def multi_replace(text, replacements, ignore_case=False):
 #######################################################################
 # Functions
 
-def normalized(a, axis=-1, order=2):
+def normalized(a, order=2):
+    """Normalize numpy vector to 1
+
+    Parameters
+    ----------
+    a : np.ndarray
+    order : int
+
+    Returns
+    -------
+    np.ndarray
+    """
+    l2 = np.linalg.norm(a, order)
+    l2 = l2 if l2 != 0 else 1
+    return a / l2
+
+
+def normalized2d(a, axis=-1, order=2):
     """Normalize numpy vector to 1
 
     Parameters

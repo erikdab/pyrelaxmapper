@@ -1,12 +1,37 @@
 # -*- coding: utf-8 -*-
 """Application cli interface."""
-import os
-import shutil
-from configparser import ConfigParser
-
 import click
+import logging
 
-from pyrelaxmapper import __version__, commands, conf, relax
+from pyrelaxmapper import __version__, commands
+from pyrelaxmapper.commands import Action
+
+logger = logging.getLogger()
+
+
+def abort_if_false(ctx, param, value):
+    """Abort click if answered no."""
+    if not value:
+        ctx.abort()
+
+
+def echo_help(command):
+    """Print help for click command."""
+    with click.Context(command) as ctx:
+        click.echo(command.get_help(ctx))
+
+
+def validate_actions(ctx, param, values):
+    """Validate actions argument and parse actions."""
+    try:
+        return commands.parse_actions(values)
+    except ValueError:
+        actions = ', '.join(e.value for e in Action)
+        wrong = [value for value in values if value not in actions]
+        multiple = '' if len(wrong) <= 1 else 's'
+        wrong = ', '.join(wrong)
+        raise click.BadParameter('invalid choice{}: {}. (choose from {})'
+                                 .format(multiple, wrong, actions))
 
 
 @click.group()
@@ -17,53 +42,98 @@ def main():
 
 
 @main.command()
-@click.argument('actions', nargs=-1, required=False)
-@click.option('--clean', default=False, help='Use caches.')
-@click.option('--configf', '-c', help='Specify configuration file.')
-def make(actions, clean, configf):
+@click.argument('actions', callback=validate_actions, nargs=-1)
+@click.option('conf_file', '-c', envvar='RLCONF', type=click.File(), help='Configuration file.')
+def make(actions, conf_file):
     """Make target ACTIONS in correct order. Chainable.
 
     \b
     ACTIONS:
-      all      Make all actions.
-      map      Setup and run relaxation labeling.
-      setup    Setup relaxation labeling.
-      relax    Run relaxation labeling.
-      """
+      clean    Clean all caches.
+      relax    Run RL algorithm.
+      stats    Create statistics report.
+    """
     if not actions:
+        echo_help(make)
+        return
+    # Remove these logs. Now just for test.
+    logger.info('Start.')
+
+    config = commands.config_load(conf_file)
+
+    if Action.Clean in actions:
+        commands.config_clean(config)
+
+    relaxer = commands.relaxer_load(config)
+
+    logger.info('Preloaded data.')
+
+    if Action.Relax in actions:
+        commands.relaxer_relax(relaxer)
+
+    if Action.Stats in actions:
+        commands.relaxer_stats(relaxer, config)
+
+    logger.info('End.')
+
+
+@main.group('config')
+def config_group():
+    """Configuration utilities."""
+    pass
+
+
+@config_group.command('list')
+def config_list():
+    """List merged application configuration."""
+    commands.config_list()
+
+
+@config_group.command('reset')
+@click.option('--yes', is_flag=True, callback=abort_if_false,
+              expose_value=False,
+              prompt='Are you sure you want to reset config?')
+def config_reset():
+    """Set user config file to defaults."""
+    commands.config_reset()
+
+
+@config_group.command('edit')
+def config_edit():
+    """Edit user config file."""
+    if not commands.config_exists():
+        commands.config_reset()
+
+    click.edit(filename=commands.config_file())
+
+
+@main.group('logger')
+def logger_group():
+    """Select logger config mode."""
+    pass
+
+
+@logger_group.command('list')
+def logger_list():
+    """Current logger level."""
+    commands.logger_list()
+
+
+@logger_group.command('select')
+@click.option('--level', type=click.Choice(['release', 'debug']))
+def logger_set(level):
+    """Select logger level."""
+    if not level:
+        echo_help(logger_set)
         return
 
-    click.secho('Loading application configuration.', fg='blue')
-    parser = ConfigParser(configf) if configf else conf.load_conf()
-    config = conf.Config(parser, clean)
-
-    if any(action in ['map', 'setup', 'relax', 'all'] for action in actions):
-        click.secho('Loading relaxation labeling setup.', fg='blue')
-        relaxer = config.cache('Relaxer', relax.Relaxer, [config], group=config.mapping_group())
-
-        # If not only setup
-        if actions != ['setup']:
-            click.secho('Running relaxation labeling.', fg='blue')
-            relaxer.relax()
+    commands.logger_reset(level == 'debug')
 
 
-@main.command('list-config')
-def list_config():
-    """List configuration information."""
-    commands.list_config()
-
-
-@main.command('set-logger')
-@click.option('--release/--debug', default=True, help='Logger mode.')
-def set_logger(release):
-    """Copy logger config template to app dir."""
-    if release:
-        click.secho('Set logger mode to RELEASE', color='red')
-    else:
-        click.secho('Set logger mode to DEBUG', color='blue')
-    logging_conf = 'logging.ini' if release else 'logging-debug.ini'
-    shutil.copyfile(os.path.join(conf.dir_pkg_conf(), logging_conf),
-                    conf.file_in_dir(conf.dir_app_data(), 'logging.ini'))
+@logger_group.command('edit')
+def logger_edit():
+    """Edit logger config file."""
+    click.edit(filename=commands.logger_file())
 
 
 if __name__ == "__main__":
