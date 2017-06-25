@@ -50,7 +50,7 @@ def make(actions, conf_file):
     \b
     ACTIONS:
       clean    Clean all caches.
-      relax    Run RL algorithm.
+      relax    Run RL algorithm and save results.
       stats    Create statistics report.
     """
     if not actions:
@@ -64,15 +64,15 @@ def make(actions, conf_file):
     if Action.Clean in actions:
         commands.config_clean(config)
 
-    relaxer = commands.relaxer_load(config)
-
-    logger.info('Preloaded data.')
-
+    status = None
     if Action.Relax in actions:
-        commands.relaxer_relax(relaxer)
+        # could merge
+        relaxer = commands.relaxer_load(config)
+        status = commands.relaxer_relax(relaxer)
 
+    # Maybe should be able to pass status file!
     if Action.Stats in actions:
-        commands.relaxer_stats(relaxer, config)
+        commands.relaxer_stats(status, config)
 
     logger.info('End.')
 

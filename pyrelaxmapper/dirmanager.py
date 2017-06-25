@@ -11,6 +11,7 @@ logger = logging.getLogger()
 
 
 # TODO: Better extension handling
+# TODO: Default name is type name
 class DirManager:
     """Directory Manager, simplifying many common tasks.
 
@@ -45,12 +46,32 @@ class DirManager:
             File group (folder)
             If main_group is set, will be placed inside it.
         """
-        path = self.path(name, main_group, group)
+        path = ensure_ext(self.path(name, main_group, group), self._extension)
         try:
-            return self._load_file(self.path(name, main_group, group))
+            return self._load_obj(path)
         except FileNotFoundError as e:
-            logger.debug('Loading error "{}". File: {}.'.format(e, path))
-            raise e
+            logger.debug('Reading error "{}". File: {}.'.format(e, path))
+
+    def w(self, name, obj, main_group=False, group=None):
+        """Load file inside managed directory.
+
+        Parameters
+        ----------
+        name : str
+            Name
+        obj : any
+            Object to save if file does not exist.
+        main_group : bool
+            If should use main context group.
+        group : str
+            File group (folder)
+            If main_group is set, will be placed inside it.
+        """
+        path = ensure_ext(self.path(name, main_group, group), self._extension)
+        try:
+            self._save_obj(obj, path)
+        except FileNotFoundError as e:
+            logger.debug('Writing error "{}". File: {}.'.format(e, path))
 
     def rw(self, name, obj, main_group=False, group=None, force=False):
         """Load or write object instance inside managed directory.
@@ -109,7 +130,7 @@ class DirManager:
             try:
                 data = self._load_obj(path)
             except FileNotFoundError as e:
-                logger.debug('Loading error "{}". File: {}.'.format(e, path))
+                logger.debug('Reading error "{}". File: {}.'.format(e, path))
         if not data:
             data = call(*args)
             self._save_obj(data, path)
@@ -157,6 +178,7 @@ class DirManager:
         shutil.rmtree(self._directory)
         os.makedirs(self._directory)
 
+    # Extension
     def path(self, filename='', main_group=False, group=None, ensure=True):
         """Path to file inside managed directory."""
         directory = self._directory
@@ -170,28 +192,8 @@ class DirManager:
         else:
             return os.path.join(directory, filename)
 
-    @staticmethod
-    def _save_file(lines, filename):
-        """Pickle object to filename.
-
-        Parameters
-        ----------
-        obj : any
-        filename : str
-        """
-        with open(filename, 'w') as f:
-            f.write(lines)
-
-    @staticmethod
-    def _load_file(filename):
-        """Loads pickled object from filename.
-
-        Parameters
-        ----------
-        filename : str
-        """
-        with open(filename, 'w') as f:
-            return f.read()
+    def dir(self):
+        return self._directory
 
     @staticmethod
     def _save_obj(obj, filename):

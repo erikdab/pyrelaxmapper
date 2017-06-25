@@ -129,7 +129,7 @@ class Iteration:
         self._index = index + 1
         self.time_sum = defaultdict(float)
         self.time = defaultdict(float)
-        self.count = defaultdict(float)
+        self.count = defaultdict(int)
 
     def index(self):
         """Return iteration number.
@@ -165,8 +165,6 @@ class Status:
 
     def __init__(self, config):
         self.config = config
-        self.source_wn = config.source_wn()
-        self.target_wn = config.target_wn()
         self.mappings = {}
         self.relaxed = {}
         self.remaining = {}
@@ -176,18 +174,24 @@ class Status:
         self.monosemous = {}
         self.polysemous = {}
 
-        self.load_cache()
+        self._load_cache()
         self.mappings.update(self.monosemous)
         self.remaining.update(self.polysemous)
         self.iterations = [Iteration(self)]
 
-    def load_cache(self):
+    def source_wn(self):
+        return self.config.source_wn()
+
+    def target_wn(self):
+        return self.config.target_wn()
+
+    def _load_cache(self):
         """Find candidates or load them from cache."""
         cache = self.config.cache
 
         args = [self.source_wn, self.target_wn, self.config.cleaner, self.config.translater]
         self.candidates = cache.rw_lazy('Candidates', dicts.find_candidates, args, True)
-        self.manual = cache.rw_lazy('Manual', self.source_wn.mappings, [self.target_wn], True)
+        self.manual = cache.rw_lazy('Manual', self.source_wn().mappings, [self.target_wn], True)
 
         self.monosemous = {source_id: target_ids[0] for source_id, target_ids in
                            self.candidates.items() if len(target_ids) == 1}
@@ -220,5 +224,6 @@ class Status:
         return self.iterations[-1]
 
     def pop_iteration(self):
+        """Pop last iteration."""
         if len(self.iterations) > 0:
             del self.iterations[-1]

@@ -60,7 +60,8 @@ class Relaxer:
         writer.writerows(self.stats.stat_total().items())
 
     def _relax(self, constrainer):
-        with click.progressbar(self.status.remaining.values(), label='Constraining') as nodes:
+        todo = self.status.remaining.values()
+        with click.progressbar(todo, label='Constraining nodes:') as nodes:
             # for node in nodes:
             for idx, node in enumerate(nodes):
                 # if idx > 0 and idx % 50 == 0:

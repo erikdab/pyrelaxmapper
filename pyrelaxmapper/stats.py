@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import csv
 import logging
 
 import numpy as np
@@ -43,9 +44,9 @@ class Stats:
                 if key == 'iteration':
                     continue
                 stats.update({
-                    key+' time': '{:.5f}'.format(float(iteration.time_sum[key])),
-                    key+' count': iteration.count[key],
-                    key+' time_avg': '{:.5f}'.format(iteration.avg(key)),
+                    key + ' time': '{:.5f}'.format(float(iteration.time_sum[key])),
+                    key + ' count': iteration.count[key],
+                    key + ' time_avg': '{:.5f}'.format(iteration.avg(key)),
                 })
         return stats
 
@@ -61,13 +62,14 @@ class Stats:
         stats['sum'] = sum(it.time_sum['iteration'] for it in self.status.iterations)
         return stats
 
+    # Also include config information!
     def stat_final(self):
         stats = {}
 
         # WordNets
-        wordnets = {'source': self.status.source_wn}
-        if self.status.source_wn != self.status.target_wn:
-            wordnets['target'] = self.status.target_wn
+        wordnets = {'source': self.status.source_wn()}
+        if self.status.source_wn() != self.status.target_wn():
+            wordnets['target'] = self.status.target_wn()
         for key, wordnet in wordnets.items():
             stats.update({
                 key: wordnet.name_full(),
@@ -87,7 +89,7 @@ class Stats:
             (cand[idx][0], len(cand[idx][1]),
              next(self.status.config.source_wn().synset(cand[idx][0]).lemma_names()))
             for idx in counts_max]
-        no_translations = [synset.uid() for synset in self.status.source_wn.all_synsets()
+        no_translations = [synset.uid() for synset in self.status.source_wn().all_synsets()
                            if synset.uid() not in self.status.candidates]
 
         no_candidates = [source_id for source_id in self.status.polysemous if
@@ -108,27 +110,31 @@ class Stats:
         avg = avg / len(candidates)
 
         # Coverage
-        manual = self.status.source_wn.mappings(self.status.target_wn)
+        manual = self.status.source_wn().mappings(self.status.target_wn())
 
         # Accuracy, monosemous, polisemous
         # Use distance later!
-        accuracy = sum(target_id == self.status.manual[source_id]
-                       for source_id, target_id in self.status.relaxed.items())
-        accuracy = accuracy / len(self.status.relaxed) if self.status.relaxed else 0
+        correct = sum(target_id == self.status.manual[source_id]
+                      for source_id, target_id in self.status.relaxed.items())
+        incorrect = len(self.status.relaxed) - correct
+        accuracy = correct / len(self.status.relaxed) if self.status.relaxed else 0
 
         # Dictionary
         stats.update({
             'n_nodes': len(self.status.candidates),
             'n_labels': sum(counts),
-            'most_ambiguous': most_ambiguous,
-            'manual': len(manual),
+            # Distribution graph!
             'labels_max': max_,
             'labels_min': min_,
             'labels_avg': avg,
+            'most_ambiguous': most_ambiguous,
             'n_connections_per_type': 0,
             'n_stable': 0,
             'n_completed': 0,
             'relaxed': len(self.status.relaxed),
+            'correct': correct,
+            'incorrect': incorrect,
+            'manual': len(manual),
             'accuracy': accuracy,
             'n_monosemous': len(self.status.monosemous),
             'n_polysemous': len(self.status.polysemous),
@@ -139,3 +145,7 @@ class Stats:
 
         stats.update(self.stat_iterations())
         return stats
+
+    def create_report(self, file):
+        writer = csv.writer(file, delimiter='\t')
+        writer.writerows(self.stat_final().items())

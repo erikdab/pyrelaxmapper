@@ -4,8 +4,10 @@ import os
 from enum import Enum
 
 import click
+import sys
 
 from pyrelaxmapper import conf, fileutils, utils, relax
+from pyrelaxmapper.stats import Stats
 
 # Click Colors
 # TODO: turn into enum?
@@ -26,13 +28,34 @@ def relaxer_relax(relaxer):
     """Run RL Algorithm."""
     click.secho('Running RL algorithm.', fg=CInfo)
     relaxer.relax()
+    config = relaxer.config
+    stat_mru = config.results.path(fileutils.add_timestamp('Status.pkl'))
+    click.secho('Writing results.', fg=CInfo)
+    config.results.w(stat_mru, relaxer.status)
+    return relaxer.status
 
 
-def relaxer_stats(relaxer, config):
+# Create result selector?
+def relaxer_stats(status, config):
     """Save statistics for RL Algorithm."""
-    click.secho('Preparing statistics.', fg=CInfo)
-    with open(config.results.path(fileutils.add_timestamp('stats.csv')), 'w') as file:
-        relaxer.save_stats(file)
+    result_n = 'stats.csv'
+    status_n = 'Status.pkl'
+
+    try:
+        stat_mru = fileutils.newest(config.results.dir(), status_n)
+    except ValueError as e:
+        click.secho('No results found, run \'make relax\' to generate results.', fg=CWarn)
+        sys.exit(1)
+
+    if not status:
+        click.secho('Reading most recently saved results.')
+        status = config.results.r(stat_mru)
+    results = '{}{}'.format(stat_mru[:stat_mru.find(status_n)], result_n)
+
+    click.secho('Creating statistics report.', fg=CInfo)
+    with open(results, 'w') as file:
+        stats = Stats(status)
+        stats.create_report(file)
 
 
 #######################################################################
@@ -73,14 +96,27 @@ def config_list():
         click.echo(''.join([path, ': (exists)' if os.path.exists(path) else '']))
 
     click.secho('Merged configuration:', fg=CInfo)
-    parser = fileutils.conf_merge()
-    for section in parser.sections():
+    default = fileutils.conf_merge([fileutils.dir_pkg_conf()])
+    merged = fileutils.conf_merge()
+    sections = list(default.keys())
+    for section in sections:
         click.echo(section)
-        for key in parser[section].keys():
-            value = parser[section][key]
-            value = os.path.expanduser(value)
-            exists = ': (exists)' if os.path.exists(value) else ''
-            click.echo(''.join(['\t', key, ': ', value, exists]))
+        keys = list(default[section].keys())
+        keys.extend(key for key in merged[section].keys() if key not in keys)
+        for key in keys:
+            v_merged = merged.get(section, key, fallback='')
+            v_default = default.get(section, key, fallback='')
+            diff = ' '
+            if v_merged and not v_default:
+                diff = '+'
+            elif not v_merged and v_default:
+                diff = '-'
+            elif v_merged != v_default:
+                diff = '~'
+            diff += ' '
+            value = os.path.expanduser(v_merged)
+            exists = ' <-(exists)' if os.path.exists(value) else ''
+            click.echo(''.join(['\t', diff, key, ': ', value, exists]))
 
 
 def config_exists():
@@ -108,7 +144,7 @@ def logger_list(debug=True):
     with open(logger_file(), 'r') as file:
         for line in file:
             if 'level=' in line:
-                level = line[line.find('=')+1:-1]
+                level = line[line.find('=') + 1:-1]
                 break
     color = CWarn if level == 'ERROR' else CWarn
     click.secho('Logger level: {}'.format(level), fg=color)
@@ -132,7 +168,7 @@ def logger_file():
 
 def logger_edit():
     """Edit logger config file."""
-    click.edit(filename=fileutils.last_in_paths('logging.ini'))
+    click.edit(filename=fileutils.in_lowest_path('logging.ini'))
 
 
 #######################################################################

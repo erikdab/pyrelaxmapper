@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Configuration utilities."""
 import datetime
+import glob
 import logging
 import os
 import shutil
@@ -50,7 +51,7 @@ def conf_merge(paths=search_paths()):
     ConfigParser
         Single config parser with merged settings.
     """
-    file_paths = last_in_paths('conf.ini')
+    file_paths = in_lowest_path('conf.ini', paths)
     parser = ConfigParser()
     parser.read(file_paths)
     return parser
@@ -79,7 +80,7 @@ def cp_data_app_data(source_name, target_name=None):
     cp(dir_pkg_data(), source_name, dir_app_data(), target_name)
 
 
-def last_in_paths(filename, paths=search_paths()):
+def in_lowest_path(filename, paths=search_paths()):
     """Find last file with pattern in paths.
 
     Parameters
@@ -96,6 +97,12 @@ def last_in_paths(filename, paths=search_paths()):
     """
     file_paths = find_in_paths(filename, paths)
     return file_paths[-1] if file_paths else file_paths
+
+
+def newest(directory, extension=''):
+    """Newest file in directory with extension."""
+    pattern = os.path.join(directory, '*{}'.format(extension))
+    return max(glob.iglob(pattern), key=os.path.getctime)
 
 
 def find_in_paths(filename, paths=search_paths()):

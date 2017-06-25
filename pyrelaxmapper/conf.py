@@ -127,6 +127,20 @@ class Config:
         self.cleaner = clean
         self.translater = translater if translater else Translater()
 
+    def __getstate__(self):
+        # Save only source and target classes, not the data itself.
+        parser = self._parser
+        sections = ['source', 'target']
+        source_wn, target_wn, = _select_wordnets(parser, sections, self._wn_classes)
+        return (self._parser, self._wn_classes, source_wn, target_wn, self.data, self.results,
+                self.cache, self.pos, self.constraints, self.constr_weights, self.cleaner,
+                self.translater)
+
+    def __setstate__(self, state):
+        (self._parser, self._wn_classes, self._source_wn, self._target_wn, self.data, self.results,
+         self.cache, self.pos, self.constraints, self.constr_weights, self.cleaner,
+         self.translater) = state
+
     def map_name(self):
         """Mapping name for folder organization."""
         return '{} -> {}'.format(self._source_wn.name(), self._target_wn.name())

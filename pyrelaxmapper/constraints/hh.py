@@ -13,11 +13,13 @@ logger = logging.getLogger()
 
 
 # TODO: Init from config file.
+# TODO: Use only HHType to speed up hashing!
 class HHConstraint(Constraint):
     """Constraints which utilize hyper/hyponym connections."""
 
     def __init__(self, orig, dest, weights):
         super().__init__(orig, dest, weights)
+        # codes = ['ii', 'aa', 'ai', 'ia']
         codes = ['ii']
         # Anything better?
         self.rel_weight = {HHDirection.hyper: 1.0, HHDirection.hypo: 0.93}
