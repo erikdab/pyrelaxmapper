@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """WordNet interface."""
 from enum import Enum
+import logging
+
+logger = logging.getLogger()
 
 
 class POS(Enum):
@@ -26,6 +29,12 @@ class WordNet:
         Section inside parser which contains plWordNet config.
     """
     def __init__(self, parser, section, preload=True):
+        self._loaded = False
+        self._synsets = {}
+        self._lemmas = {}
+        self._lunits = {}
+        self._count_lemmas = 0
+        self._count_lunits = 0
         if preload:
             self.load()
 
@@ -94,7 +103,7 @@ class WordNet:
         -------
         Synset
         """
-        pass
+        return self._synsets.get(uid)
 
     def synsets(self, lemma, pos=None):
         """Synsets containing lemma of desired POS.
@@ -111,6 +120,24 @@ class WordNet:
         synsets : list of Synset
         """
         pass
+
+    def all_lemmas(self):
+        """All lemmas.
+
+        Returns
+        -------
+        synset: list of str
+        """
+        return self._lemmas
+
+    def all_lunits(self):
+        """All lexical units.
+
+        Returns
+        -------
+        synset: list of LexicalUnit
+        """
+        return self._lunits
 
     def all_synsets(self):
         """All synsets.
@@ -129,9 +156,13 @@ class WordNet:
         cleaner : func
         """
         lemmas = {}
+        self._count_lunits = 0
         for synset in self.all_synsets():
-            for lemma in synset.lemmas():
-                lemmas.setdefault(cleaner(lemma.name()), []).append(synset.uid())
+            for lunit in synset.lemmas():
+                self._count_lunits += 1
+                lemma = cleaner(lunit.name())
+                lemmas.setdefault(lemma, []).append(synset.uid())
+        self._count_lemmas = len(lemmas)
         return lemmas
 
     def mappings(self, other_wn, recurse=True):
@@ -179,7 +210,7 @@ class WordNet:
         -------
         int
         """
-        return 0
+        return len(self._synsets)
 
     def count_lunits(self):
         """Count of all lunits.
@@ -188,7 +219,7 @@ class WordNet:
         -------
         int
         """
-        return 0
+        return self._count_lunits if self._count_lunits else len(self._lunits)
 
     def count_lemmas(self):
         """Count of all lemmas.
@@ -197,7 +228,7 @@ class WordNet:
         -------
         int
         """
-        return 0
+        return self._count_lemmas if self._count_lemmas else len(self._lemmas)
 
     def load(self):
         """Loads wordnet data and returns self."""
@@ -209,7 +240,17 @@ class WordNet:
         Returns
         -------
         bool"""
-        return True
+        return self._loaded
+
+    def find_hh_layers(self):
+        hypernym_layers_uid = {
+            key: Synset.get_uids(synset.find_hypernym_layers())
+            for key, synset in self._synsets.items()}
+
+        hyponym_layers_uid = {
+            key: Synset.get_uids(synset.find_hyponym_layers())
+            for key, synset in self._synsets.items()}
+        return hypernym_layers_uid, hyponym_layers_uid
 
 
 class Synset:
@@ -220,8 +261,8 @@ class Synset:
     """
     def __repr__(self):
         # Can list unitindex too!
-        ellipsis_ = ',...' if self.count() > 1 else ''
-        return "{}({})[{}{}]".format(type(self).__name__, self.uid(), self.name(), ellipsis_)
+        # ellipsis_ = ',...' if self.count() > 1 else ''
+        return "{}({})".format(type(self).__name__, self.uid())
 
     def uid(self):
         """Synset unique identifier in wordnet dataset.
@@ -270,9 +311,53 @@ class Synset:
 
     @staticmethod
     def get_uids(synsets):
+        """Convert list of synsets to list of uids"""
         if all(isinstance(el, list) for el in synsets):
             return [[synset.uid() for synset in group] for group in synsets]
         return [synset.uid() for synset in synsets]
+
+    def find_hypernym_layers(self):
+        """Find hypernym paths for synset.
+
+        Parameters
+        ----------
+        synset : pyrelaxmapper.wnmap.wnsource.Synset
+
+        Returns
+        -------
+        hyper_paths : list of pyrelaxmapper.wnmap.wnsource.Synset
+        """
+        paths = self.hypernym_paths()
+        layers = [set() for layer in range(max(len(path) for path in paths) - 1)]
+        for path in paths:
+            # Bottom to Top; Remove current synset
+            path_ = path[::-1][1:]
+            for layer in range(len(path_)):
+                layers[layer].add(path_[layer])
+        return [list(layer) for layer in layers]
+
+    @staticmethod
+    def find_hypernym_paths(synset):
+        """Find hypernym paths for synset.
+
+        Parameters
+        ----------
+        synset : pyrelaxmapper.wnmap.wnsource.Synset
+
+        Returns
+        -------
+        hyper_paths : list of pyrelaxmapper.wnmap.wnsource.Synset
+        """
+        hypernyms = synset.hypernyms()
+        if not hypernyms:
+            return [[synset]]
+        hypernym_paths = []
+        idx = 0
+        for idx, hypernym in enumerate(synset.hypernyms()):
+            sub_paths = [path + [synset] for path in Synset.find_hypernym_paths(hypernym)]
+            hypernym_paths.append(sub_paths)
+
+        return [hypernym_path[0] for hypernym_path in hypernym_paths] if idx else hypernym_paths[0]
 
     def hypernyms(self):
         """Hypernyms.
@@ -296,7 +381,7 @@ class Synset:
         """
         pass
 
-    def hypernym_layers(self, uids=False):
+    def hypernym_layers(self):
         """Hypernym paths.
 
         Returns
@@ -327,7 +412,7 @@ class Synset:
         """
         pass
 
-    def hyponym_layers(self, uids=False):
+    def hyponym_layers(self):
         """Hyponym layers.
 
         Returns

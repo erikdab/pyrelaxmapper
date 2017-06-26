@@ -47,14 +47,16 @@ class Relaxer:
     def _relax_loop(self, constrainer):
         iteration = self.status.iteration()
         writer = csv.writer(sys.stdout, delimiter='\t')
-        while iteration.index() <= 1 or self.status.iterations[-2].has_changes():
-            iteration.start('iteration')
-            click.secho('Iteration: {}'.format(iteration.index()), fg='blue')
+        while iteration.index <= 1 or self.status.iterations[-2].changed():
+            key = 'iteration'
+            iteration.start(key)
+            iteration.add_count(key, len(self.status.remaining))
+            click.secho('Iteration: {}'.format(iteration.index), fg='blue')
             self._relax(constrainer)
-            iteration.stop('iteration')
+            iteration.stop(key)
             writer.writerows(self.stats.stat_iteration(iteration, True).items())
             # sys.exit(1)
-            if not iteration.has_changes():
+            if not iteration.changed():
                 break
             iteration = self.status.push_iteration()
         writer.writerows(self.stats.stat_total().items())
@@ -94,8 +96,8 @@ class Relaxer:
         # Learnt something
         if len(maxind) == 1:
             # Monosemic mapping
-            iteration.mappings[node.source()] = node.labels()[maxind[0]]
+            iteration.mappings[node.source] = node.labels[maxind[0]]
         else:
             # Polysemic lesson
             logger.info('Polysemic mapping done!')
-            iteration.remaining[node.source()] = [node.labels()[idx] for idx in maxind]
+            iteration.remaining[node.source] = [node.labels[idx] for idx in maxind]

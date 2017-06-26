@@ -11,22 +11,6 @@ from pyrelaxmapper import dicts
 logger = logging.getLogger()
 
 
-class Connection:
-    """Primarily for statistical purposes."""
-
-    def __init__(self, constraint, weight):
-        self.constraint = constraint
-        self.weight = weight
-
-
-class Label:
-    """A label between a source synset and a target synset."""
-
-    def __init__(self, target):
-        self.connections = []
-        self.target = 0
-
-
 class Node:
     """RL variable, a source taxonomy synset, with target labels.
 
@@ -37,9 +21,8 @@ class Node:
     """
 
     def __init__(self, source, labels):
-        self._source = source
-        self._labels = labels
-        # self._labels = [Label(label) for label in labels]
+        self.source = source
+        self.labels = labels
         self.weights = None
         self.weights_reset()
 
@@ -49,7 +32,6 @@ class Node:
             self.weights = np.full(self.count(), self.avg_weight())
         else:
             self.weights.fill(self.avg_weight())
-            # Also inside connections
 
     def no_changes(self):
         """Whether the weights were changed from their defaults.
@@ -60,33 +42,6 @@ class Node:
         """
         return all(np.unique(self.weights) == self.avg_weight())
 
-    def source(self):
-        """Source variable uid.
-
-        Returns
-        -------
-        int
-        """
-        return self._source
-
-    def labels_ids(self):
-        """Target label ids.
-
-        Returns
-        -------
-        array_like
-        """
-        return [label.target for label in self._labels]
-
-    def labels(self):
-        """Target label ids.
-
-        Returns
-        -------
-        array_like of Label
-        """
-        return self._labels
-
     def count(self):
         """Count of labels.
 
@@ -94,7 +49,7 @@ class Node:
         -------
         int
         """
-        return len(self._labels)
+        return len(self.labels)
 
     def avg_weight(self):
         """Average weight.
@@ -126,21 +81,12 @@ class Iteration:
         self._status = status
         self.mappings = {}
         self.remaining = {}
-        self._index = index + 1
+        self.index = index + 1
         self.time_sum = defaultdict(float)
         self.time = defaultdict(float)
         self.count = defaultdict(int)
 
-    def index(self):
-        """Return iteration number.
-
-        Returns
-        -------
-        int
-        """
-        return self._index
-
-    def has_changes(self):
+    def changed(self):
         return len(self.mappings) > 0 or len(self.remaining) > 0
 
     def start(self, key):
@@ -149,7 +95,9 @@ class Iteration:
     def stop(self, key):
         self.time[key] = time.clock() - self.time[key]
         self.time_sum[key] += self.time[key]
-        self.count[key] += 1
+
+    def add_count(self, key, count):
+        self.count[key] += count
 
     def avg(self, key):
         return self.time_sum[key] / self.count[key] if self.count[key] else 0
@@ -185,13 +133,27 @@ class Status:
     def target_wn(self):
         return self.config.target_wn()
 
+    # lemma to synsets should be inside the wordnet!
+    def find_candidates(self):
+        cache = self.config.cache
+        if not cache.exists('Candidates', True):
+            translater = self.config.translater()
+            source_lemmas = cache.rw_lazy('lemma -> synsets', self.source_wn().lemma_synsets,
+                                          [translater.cleaner], group=self.source_wn().name())
+            target_lemmas = cache.rw_lazy('lemma -> synsets', self.target_wn().lemma_synsets,
+                                          [translater.cleaner], group=self.target_wn().name())
+            self.candidates = dicts.find_candidates(source_lemmas, target_lemmas, translater)
+            cache.w('Candidates', self.candidates, True)
+        else:
+            self.candidates = cache.r('Candidates', True)
+        return self.candidates
+
     def _load_cache(self):
         """Find candidates or load them from cache."""
         cache = self.config.cache
 
-        args = [self.source_wn, self.target_wn, self.config.cleaner, self.config.translater]
-        self.candidates = cache.rw_lazy('Candidates', dicts.find_candidates, args, True)
-        self.manual = cache.rw_lazy('Manual', self.source_wn().mappings, [self.target_wn], True)
+        self.candidates = self.find_candidates()
+        self.manual = cache.rw_lazy('Manual', self.source_wn().mappings, [self.target_wn()], True)
 
         self.monosemous = {source_id: target_ids[0] for source_id, target_ids in
                            self.candidates.items() if len(target_ids) == 1}
@@ -216,7 +178,7 @@ class Status:
         for key in self.iteration().mappings.keys():
             del self.remaining[key]
 
-        self.iterations.append(Iteration(self, self.iteration().index()))
+        self.iterations.append(Iteration(self, self.iteration().index))
         return self.iteration()
 
     def iteration(self):

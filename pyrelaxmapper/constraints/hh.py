@@ -38,9 +38,9 @@ class HHConstraint(Constraint):
             self.o_any_recurse, self.d_any_recurse, self.rel_weight, self.hhtypes)
 
         avg_labels = 10 / (node.count() ** 2)
-        o_hyper, o_hypo = _relation_uids(self.orig.synset(node.source()), o_any_recurse)
+        o_hyper, o_hypo = _relation_uids(self.orig.synset(node.source), o_any_recurse)
 
-        for idx, label in enumerate(node.labels()):
+        for idx, label in enumerate(node.labels):
             d_hyper, d_hypo = _relation_uids(self.dest.synset(label), d_any_recurse)
             conn = {
                 HHDirection.hyper: _connections(mapped, o_hyper, d_hyper),
@@ -154,8 +154,8 @@ def _relation_uids(synset, any_recurse):
     """
     hyper_range = None if any_recurse[HHDirection.hyper] else 1
     hypo_range = None if any_recurse[HHDirection.hyper] else 1
-    hyper = synset.hypernym_layers(True)[:hyper_range]
-    hypo = synset.hyponym_layers(True)[:hypo_range]
+    hyper = synset.hypernym_layers()[:hyper_range]
+    hypo = synset.hyponym_layers()[:hypo_range]
     return hyper, hypo
 
 
@@ -185,45 +185,6 @@ def _any_recurse(hhtypes):
                 if hhtype.direction in [HHDirection.hypo, HHDirection.both]),
     }
     return o_recurse, d_recurse
-
-
-msg = {}
-
-
-def message(o_layer, d_layer, num):
-    """Print statistical messages."""
-    if msg.get(num):
-        return
-    msg[num] = True
-    lens = '[{},{}]'.format(len(o_layer), len(d_layer))
-    diff = 'equal' if len(o_layer) == len(d_layer) else 'diff'
-    count = any(o_id == d_id for o_id in o_layer for d_id in d_layer)
-    logger.info('#{} len:{} {} any:{}'.format(num, lens, diff, count))
-
-
-def _connection_stats(o_layer, d_layer, count):
-    # Write this up for Statistics
-    if len(o_layer) == len(d_layer) == 1:
-        if count:
-            message(o_layer, d_layer, 0)
-        else:
-            message(o_layer, d_layer, 1)
-    elif len(o_layer) == len(d_layer):
-        if count:
-            message(o_layer, d_layer, 2)
-        if not count:
-            message(o_layer, d_layer, 3)
-    if len(o_layer) != len(d_layer):
-        if min(len(o_layer), len(d_layer)) > 1:
-            if count:
-                message(o_layer, d_layer, 4)
-            if not count:
-                message(o_layer, d_layer, 5)
-        else:
-            if count:
-                message(o_layer, d_layer, 6)
-            if not count:
-                message(o_layer, d_layer, 7)
 
 
 _hhtype = {hhtype: hash(HHType.factory(hhtype, False)[0]) for hhtype in
@@ -262,6 +223,8 @@ def _connections(mapped, orig_rel, dest_rel):
         o_mapped = get_o_mapped(mapped, o_layer)
         for d_dist, d_layer in enumerate(dest_rel):
             count = count_conn(o_mapped, d_layer)
+
+            # _connection_stats(o_layer, d_layer, count)
 
             if not count:
                 continue
@@ -302,6 +265,7 @@ def _weight_formula(weight, dist_count):
     return np.sum(count * (weight / 2 ** distance) for distance, count in dist_count)
 
 
+# TODO: Statistics for which connections most useful?
 def _weight(node, code, conn, rel_weights, avg_weight, avg_candidates):
     """Apply constraint to calculate weight.
 
@@ -345,3 +309,43 @@ def _weight(node, code, conn, rel_weights, avg_weight, avg_candidates):
     else:
         return 0.0
     return _weight_formula(weight, dist_count)
+
+
+msg = {}
+
+
+def message(o_layer, d_layer, num):
+    """Print statistical messages."""
+    if msg.get(num):
+        return
+    msg[num] = True
+    lens = '[{},{}]'.format(len(o_layer), len(d_layer))
+    diff = 'equal' if len(o_layer) == len(d_layer) else 'diff'
+    count = any(o_id == d_id for o_id in o_layer for d_id in d_layer)
+    logger.info('#{} len:{} {} any:{}'.format(num, lens, diff, count))
+
+
+# Always exist. Explain examples
+def _connection_stats(o_layer, d_layer, count):
+    # Write this up for Statistics
+    if len(o_layer) == len(d_layer) == 1:
+        if count:
+            message(o_layer, d_layer, 0)
+        else:
+            message(o_layer, d_layer, 1)
+    elif len(o_layer) == len(d_layer):
+        if count:
+            message(o_layer, d_layer, 2)
+        if not count:
+            message(o_layer, d_layer, 3)
+    if len(o_layer) != len(d_layer):
+        if min(len(o_layer), len(d_layer)) > 1:
+            if count:
+                message(o_layer, d_layer, 4)
+            if not count:
+                message(o_layer, d_layer, 5)
+        else:
+            if count:
+                message(o_layer, d_layer, 6)
+            if not count:
+                message(o_layer, d_layer, 7)

@@ -3,10 +3,10 @@ from pyrelaxmapper.constraints import Constraint
 
 # class AntonymsConstraint(Constraint):
 #     def apply(self, mapped, node):
-#         source_syn = self.orig(node.source())
+#         source_syn = self.orig(node.source)
 #         source_antonyms = source_syn.antonyms()
 #
-#         for idx, target_name in enumerate(node.labels()):
+#         for idx, target_name in enumerate(node.labels):
 #             target_syn = self.orig(target_name)
 #             target_antonyms = target_syn.antonyms()
 
@@ -28,10 +28,10 @@ class DaughtersConstraint(Constraint):
     def apply(self, mapped, remaining):
         policy = self.Policy.NONE
         for node in remaining.items():
-            source = self.orig.synset(node.source())
+            source = self.orig.synset(node.source)
             source_hipo = len(source.hiponyms())
 
-            for idx, target_name in enumerate(node.labels()):
+            for idx, target_name in enumerate(node.labels):
                 target = self.dest.synset(target_name)
                 target_hypo = len(target.hyponyms())
 
@@ -93,7 +93,7 @@ class HyperHypoConstraint(Constraint):
         # constr = self.constrainer._constr
         # constr_weights = self.constrainer._constr_weights
         constr = 'ii'
-        source = self.orig.synset(node.source())
+        source = self.orig.synset(node.source)
         hiper_pl = source.hypernym_paths()
         if hiper_pl:
             hiper_pl = hiper_pl[0][::-1][1:]
@@ -109,7 +109,7 @@ class HyperHypoConstraint(Constraint):
         avg_weight = node.avg_weight()
 
         # traverse through target potential candidates.
-        for idx, target_name in enumerate(node.labels()):
+        for idx, target_name in enumerate(node.labels):
             target_syn = self.dest.synset(target_name)
             hiper_en = target_syn.hypernym_paths()
             if hiper_en:

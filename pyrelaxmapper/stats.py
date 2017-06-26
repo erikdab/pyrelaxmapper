@@ -53,7 +53,7 @@ class Stats:
     def stat_iterations(self):
         stats = {}
         for iteration in self.status.iterations:
-            stats[iteration.index()] = self.stat_iteration(iteration)
+            stats[iteration.index] = self.stat_iteration(iteration)
         stats['sum'] = sum(it.time_sum['iteration'] for it in self.status.iterations)
         return stats
 
@@ -140,7 +140,7 @@ class Stats:
             'n_polysemous': len(self.status.polysemous),
             'n_no_translations': len(no_translations),
             'n_no_candidates': len(no_candidates),
-            'dict_lemmas': self.status.config.translater.count(),
+            'dict_lemmas': self.status.config.translater().count(),
         })
 
         stats.update(self.stat_iterations())

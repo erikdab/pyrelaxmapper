@@ -192,8 +192,8 @@ class DirManager:
         else:
             return os.path.join(directory, filename)
 
-    def dir(self):
-        return self._directory
+    def dir(self, main_group=False, group=None):
+        return self.path('', main_group, group)
 
     @staticmethod
     def _save_obj(obj, filename):

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """Application cli interface."""
 import click
-import logging
 
 from pyrelaxmapper import __version__, commands
 from pyrelaxmapper.commands import Action
 
-logger = logging.getLogger()
 
+#######################################################################
+# Click Functions
 
 def abort_if_false(ctx, param, value):
     """Abort click if answered no."""
@@ -34,6 +34,24 @@ def validate_actions(ctx, param, values):
                                  .format(multiple, wrong, actions))
 
 
+def conf_option(mode='r'):
+    """Config file loader using Click option decorator.
+
+    Loads first in order: -c PATH, $RLCONF, app-dir, pkg-conf.
+
+    Parameters
+    ----------
+    mode : str
+        Mode to open File in (r, w, a, rb, wb, ...)
+    """
+    return click.option('conf_file', '-c', envvar='RLCONF', default=commands.config_file(),
+                        type=click.File(mode), help='Configuration file.')
+
+
+#######################################################################
+# Interface Definition.
+
+
 @click.group()
 @click.version_option(version=__version__)
 def main():
@@ -43,7 +61,7 @@ def main():
 
 @main.command()
 @click.argument('actions', callback=validate_actions, nargs=-1)
-@click.option('conf_file', '-c', envvar='RLCONF', type=click.File(), help='Configuration file.')
+@conf_option()
 def make(actions, conf_file):
     """Make target ACTIONS in correct order. Chainable.
 
@@ -53,29 +71,13 @@ def make(actions, conf_file):
       relax    Run RL algorithm and save results.
       stats    Create statistics report.
     """
-    if not actions:
-        echo_help(make)
-        return
-    # Remove these logs. Now just for test.
-    logger.info('Start.')
+    if actions:
+        return commands.make_actions(actions, conf_file)
+    echo_help(make)
 
-    config = commands.config_load(conf_file)
 
-    if Action.Clean in actions:
-        commands.config_clean(config)
-
-    status = None
-    if Action.Relax in actions:
-        # could merge
-        relaxer = commands.relaxer_load(config)
-        status = commands.relaxer_relax(relaxer)
-
-    # Maybe should be able to pass status file!
-    if Action.Stats in actions:
-        commands.relaxer_stats(status, config)
-
-    logger.info('End.')
-
+#######################################################################
+# Configuration Interface.
 
 @main.group('config')
 def config_group():
@@ -84,28 +86,31 @@ def config_group():
 
 
 @config_group.command('list')
-def config_list():
+@conf_option()
+def config_list(conf_file):
     """List merged application configuration."""
-    commands.config_list()
+    commands.config_list(conf_file)
 
 
 @config_group.command('reset')
 @click.option('--yes', is_flag=True, callback=abort_if_false,
               expose_value=False,
               prompt='Are you sure you want to reset config?')
-def config_reset():
+@conf_option('w')
+def config_reset(conf_file):
     """Set user config file to defaults."""
-    commands.config_reset()
+    commands.config_reset(conf_file)
 
 
 @config_group.command('edit')
-def config_edit():
+@conf_option()
+def config_edit(conf_file):
     """Edit user config file."""
-    if not commands.config_exists():
-        commands.config_reset()
+    click.edit(filename=conf_file.name)
 
-    click.edit(filename=commands.config_file())
 
+#######################################################################
+# Logger Interface.
 
 @main.group('logger')
 def logger_group():

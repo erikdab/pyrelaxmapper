@@ -7,9 +7,11 @@ from pyrelaxmapper.plwn.models import (Parameter, LexicalUnit, Synset, SynsetRel
                                        RelationType, UnitSynset, LexicalRelation)
 
 
+# TODO: This isn't the proper version number...
 def version(session):
     """Query plWordNet for format version."""
-    return session.query(Parameter).filter_by(name='programversion').first().value
+    value = session.query(Parameter).filter_by(name='programversion').first().value
+    return value[value.rfind(' ')+1:]
 
 
 def reltypes(session, types=None):

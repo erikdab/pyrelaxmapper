@@ -70,9 +70,20 @@ def cp(source_dir, source_name, target_dir, target_name=None):
     shutil.copyfile(source_path, target_path)
 
 
+def cp_file(source_dir, source_name, file):
+    """Copy file from source to directory and ensure paths exist."""
+    source_path = ensure_path(source_dir, source_name)
+    shutil.copyfile(source_path, file)
+
+
 def cp_conf_app_data(source_name, target_name=None):
     """Copy file from package conf dir to app data."""
     cp(dir_pkg_conf(), source_name, dir_app_data(), target_name)
+
+
+def cp_conf_file(source_name, file):
+    """Copy file from package conf dir to app data."""
+    cp_file(dir_pkg_conf(), source_name, file)
 
 
 def cp_data_app_data(source_name, target_name=None):

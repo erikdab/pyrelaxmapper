@@ -2,6 +2,7 @@
 """Main Application commands."""
 import os
 from enum import Enum
+import logging
 
 import click
 import sys
@@ -9,18 +10,45 @@ import sys
 from pyrelaxmapper import conf, fileutils, utils, relax
 from pyrelaxmapper.stats import Stats
 
+logger = logging.getLogger()
+
 # Click Colors
 # TODO: turn into enum?
+CSuccess = 'green'
 CInfo = 'blue'
 CError = 'red'
 CWarn = 'yellow'
 
 
+def make_actions(actions, conf_file):
+    """Make actions in correct order."""
+    # Remove these logs. Now just for test.
+    logger.info('Start.')
+
+    config = config_load(conf_file)
+
+    if Action.Clean in actions:
+        config_clean(config)
+
+    status = None
+    if Action.Relax in actions:
+        # could merge
+        relaxer = relaxer_load(config)
+        status = relaxer_relax(relaxer)
+
+    # Maybe should be able to pass status file as option/input etc.
+    if Action.Stats in actions:
+        relaxer_stats(status, config)
+
+    logger.info('End.')
+
+
 #######################################################################
-# RL Algorithm
+# Relaxer and statistics.
 
 def relaxer_load(config):
     """Load relaxer."""
+    click.secho('Loading large data for RL algorithm.', fg=CInfo)
     return relax.Relaxer(config)
 
 
@@ -29,9 +57,9 @@ def relaxer_relax(relaxer):
     click.secho('Running RL algorithm.', fg=CInfo)
     relaxer.relax()
     config = relaxer.config
-    stat_mru = config.results.path(fileutils.add_timestamp('Status.pkl'))
+    stat_mru = fileutils.add_timestamp('Status.pkl')
     click.secho('Writing results.', fg=CInfo)
-    config.results.w(stat_mru, relaxer.status)
+    config.results.w(stat_mru, relaxer.status, True)
     return relaxer.status
 
 
@@ -42,14 +70,14 @@ def relaxer_stats(status, config):
     status_n = 'Status.pkl'
 
     try:
-        stat_mru = fileutils.newest(config.results.dir(), status_n)
+        stat_mru = fileutils.newest(config.results.dir(True), status_n)
     except ValueError as e:
         click.secho('No results found, run \'make relax\' to generate results.', fg=CWarn)
         sys.exit(1)
 
     if not status:
         click.secho('Reading most recently saved results.')
-        status = config.results.r(stat_mru)
+        status = config.results.r(stat_mru, True)
     results = '{}{}'.format(stat_mru[:stat_mru.find(status_n)], result_n)
 
     click.secho('Creating statistics report.', fg=CInfo)
@@ -59,7 +87,7 @@ def relaxer_stats(status, config):
 
 
 #######################################################################
-# Application configuration
+# Application configuration.
 
 def config_load(conf_file):
     """Load configuration parser and merge with file if present."""
@@ -74,7 +102,7 @@ def config_load(conf_file):
 
 def config_clean(config):
     """Clean all cache files."""
-    click.secho('Cleaning all caches.', fg=CInfo)
+    click.secho('Cleaning all caches, reloading should take around a minute.', fg=CInfo)
     config.cache.remove_all()
 
 
@@ -88,16 +116,25 @@ def config_clean(config):
 #     return config.cache.rw('Config', config, True, force=force_config)
 
 
-def config_list():
+# To file?
+def config_list(conf_file):
     """List application configuration."""
     click.secho('Configuration summary:', color=CInfo)
     click.secho('Search paths:', fg=CInfo)
     for path in fileutils.search_paths():
-        click.echo(''.join([path, ': (exists)' if os.path.exists(path) else '']))
+        path = os.path.join(path, 'conf.ini')
+        click.echo(''.join([path, ' <-(exists)' if os.path.exists(path) else '']))
 
-    click.secho('Merged configuration:', fg=CInfo)
+    path = os.environ.get('RLCONF', '')
+    if path:
+        click.secho('\nRLCONF:', fg=CInfo)
+        click.echo(''.join([path, ' <-(exists)' if os.path.exists(path) else '']))
+
+    click.secho('\nMerged configuration:', fg=CInfo)
     default = fileutils.conf_merge([fileutils.dir_pkg_conf()])
     merged = fileutils.conf_merge()
+    if conf_file:
+        merged.read_file(conf_file)
     sections = list(default.keys())
     for section in sections:
         click.echo(section)
@@ -116,7 +153,7 @@ def config_list():
             diff += ' '
             value = os.path.expanduser(v_merged)
             exists = ' <-(exists)' if os.path.exists(value) else ''
-            click.echo(''.join(['\t', diff, key, ': ', value, exists]))
+            click.echo(''.join(['\t', diff, key, ' = ', value, exists]))
 
 
 def config_exists():
@@ -124,10 +161,27 @@ def config_exists():
     return os.path.exists(fileutils.conf_app_path())
 
 
-def config_reset():
+def config_remove(conf_file):
     """Reset app config."""
-    fileutils.cp_conf_app_data('conf.ini')
+    conf_file.write('')
+
+
+# Edit writes by default if not exists.
+
+# Removes
+def config_reset(conf_file):
+    """Reset app config."""
+    path = fileutils.ensure_path(fileutils.dir_pkg_conf(), 'conf.ini')
+    with open(path) as file:
+        conf_file.write(file.read())
+    # fileutils.cp_conf_app_data(conf_file)
     click.secho('Config reset to defaults.', fg=CInfo)
+
+
+def config_erase(conf_file):
+    """Erase config."""
+    if os.path.exists(fileutils.conf_app_path()):
+        conf_file.write('')
 
 
 def config_file():
@@ -136,7 +190,7 @@ def config_file():
 
 
 #######################################################################
-# Logger configuration
+# Logger configuration.
 
 def logger_list(debug=True):
     """List logger config information."""
@@ -172,7 +226,7 @@ def logger_edit():
 
 
 #######################################################################
-# Others
+# Other interface utilities.
 
 
 class Action(Enum):

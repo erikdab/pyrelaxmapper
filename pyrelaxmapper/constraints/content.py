@@ -9,12 +9,12 @@ class WordsConstraint(Constraint):
     def apply(self, mapped, node):
         power_match = False
         self.dictionary = {}
-        source = self.orig.synset(node.source())
+        source = self.orig.synset(node.source)
         source_lemmas = source.lemma_names()
         source_translations = (lemma for source_lemma in source_lemmas
                                for lemma in self.dictionary[source_lemma])
 
-        for idx, target_name in enumerate(node.labels()):
+        for idx, target_name in enumerate(node.labels):
             target = self.dest.synset(target_name)
             target_lemmas = target.lemma_names()
 
