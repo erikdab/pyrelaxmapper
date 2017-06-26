@@ -51,12 +51,16 @@ def enum_factory(enum_type, values):
 #######################################################################
 # String functions
 
-def clean(term, spaces=False):
+def clean(term):
     """Clean symbols for term."""
-    rep = {'(': '', ')': '', 'the ': '', '/': '', ' ': '_', '-': '_', ',': ''}
-    # if spaces:
-    #     rep[' '] = '_'
-    return multi_replace(term.strip().lower(), rep).strip()
+    # Return symbols or numbers
+    if not re.search('[a-zA-Z]', term):
+        return term
+
+    # Clean text, :
+    rep = {'(': '', ')': '', 'the ': '', '/': '', ' ': '_', '-': '_', ',': '', ':': ''}
+    d = multi_replace(term.strip().lower(), rep).strip()
+    return d
 
 
 def multi_replace(text, replacements, ignore_case=False):

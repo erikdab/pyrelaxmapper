@@ -64,7 +64,7 @@ class Node:
         """Increase one weight and proportionally decrease others."""
         sub = amount / (len(self.weights) - 1)
         self.weights -= sub
-        self.weights[idx] += 2 * amount
+        self.weights[idx] += sub + amount
 
 
 class Iteration:
@@ -118,7 +118,13 @@ class Status:
         self.remaining = {}
 
         self.manual = {}
+        # Manual which are missing in target
+        self.d_missing = {}
         self.candidates = {}
+        self.s_lemma_coverage = 0
+        self.d_lemma_coverage = 0
+        self.s_lemma_count = 0
+        self.d_lemma_count = 0
         self.monosemous = {}
         self.polysemous = {}
 
@@ -133,19 +139,25 @@ class Status:
     def target_wn(self):
         return self.config.target_wn()
 
-    # lemma to synsets should be inside the wordnet!
+    # lemma to synsets should be inside the wordnet! Or in config?
     def find_candidates(self):
         cache = self.config.cache
         if not cache.exists('Candidates', True):
-            translater = self.config.translater()
+            translater = self.config.dicts()
             source_lemmas = cache.rw_lazy('lemma -> synsets', self.source_wn().lemma_synsets,
-                                          [translater.cleaner], group=self.source_wn().name())
+                                          [self.config.cleaner], group=self.source_wn().name())
             target_lemmas = cache.rw_lazy('lemma -> synsets', self.target_wn().lemma_synsets,
-                                          [translater.cleaner], group=self.target_wn().name())
-            self.candidates = dicts.find_candidates(source_lemmas, target_lemmas, translater)
-            cache.w('Candidates', self.candidates, True)
+                                          [self.config.cleaner], group=self.target_wn().name())
+            args = [source_lemmas, target_lemmas, translater]
+            (self.candidates, ((self.s_lemma_coverage, self.s_lemma_count),
+                               (self.d_lemma_coverage, self.d_lemma_count))) \
+                = cache.rw_lazy('Candidates', dicts.find_candidates, args, True)
         else:
-            self.candidates = cache.r('Candidates', True)
+            (self.candidates, ((self.s_lemma_coverage, self.s_lemma_count),
+                               (self.d_lemma_coverage, self.d_lemma_count))) \
+                = cache.r('Candidates', True)
+        self.source_wn()._count_lemmas = self.s_lemma_count
+        self.target_wn()._count_lemmas = self.d_lemma_count
         return self.candidates
 
     def _load_cache(self):
@@ -153,11 +165,17 @@ class Status:
         cache = self.config.cache
 
         self.candidates = self.find_candidates()
-        self.manual = cache.rw_lazy('Manual', self.source_wn().mappings, [self.target_wn()], True)
+        self.manual, self.d_missing = \
+            cache.rw_lazy('Manual', self.source_wn().mappings, [self.target_wn()], True)
 
-        self.monosemous = {source_id: target_ids[0] for source_id, target_ids in
+        if not self.candidates:
+            self.candidates = {k.uid(): [k.uid()] for k in self.source_wn().all_synsets()}
+
+        # Not convinced set wouldn't be better!
+        self.monosemous = {source_id: list(target_ids)[0] for source_id, target_ids in
                            self.candidates.items() if len(target_ids) == 1}
-        self.polysemous = {source_id: Node(source_id, target_ids) for source_id, target_ids in
+        self.polysemous = {source_id: Node(source_id, list(target_ids))
+                           for source_id, target_ids in
                            self.candidates.items() if len(target_ids) > 1}
 
     def push_iteration(self):

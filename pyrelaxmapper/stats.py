@@ -31,8 +31,8 @@ class Stats:
             iteration = self.status.iteration()
         key = 'iteration'
         stats = {
-            'completed': int(iteration.count[key]),
-            'monosemic': len(iteration.mappings),
+            'relaxed': int(iteration.count[key]),
+            'selected': len(iteration.mappings),
             # 'changes': len(iteration.remaining),
             'time': '{:.5f}'.format(float(iteration.time_sum[key])),
             'avg': '{:.5f}'.format(iteration.avg(key)),
@@ -54,7 +54,8 @@ class Stats:
         stats = {}
         for iteration in self.status.iterations:
             stats[iteration.index] = self.stat_iteration(iteration)
-        stats['sum'] = sum(it.time_sum['iteration'] for it in self.status.iterations)
+        time = sum(it.time_sum['iteration'] for it in self.status.iterations)
+        stats['sum'] = '{:.2f} sec.'.format(time)
         return stats
 
     def stat_total(self):
@@ -64,7 +65,7 @@ class Stats:
 
     # Also include config information!
     def stat_final(self):
-        stats = {}
+        stats = {'title': 'value'}
 
         # WordNets
         wordnets = {'source': self.status.source_wn()}
@@ -84,11 +85,13 @@ class Stats:
         # Mapping
         cand = list(self.status.candidates.items())
         counts = np.array([len(node[1]) for node in cand])
-        counts_max = counts.argsort()[-5:][::-1]
-        most_ambiguous = [
-            (cand[idx][0], len(cand[idx][1]),
-             next(self.status.config.source_wn().synset(cand[idx][0]).lemma_names()))
-            for idx in counts_max]
+        # counts_max = counts.argsort()[-5:][::-1]
+        # most_ambiguous = '\t'.join([
+        #     ','.join([str(cand[idx][0]), str(len(cand[idx][1])),
+        #                str(next(
+        #                    self.status.config.source_wn().synset(cand[idx][0]).lemma_names()))])
+        #     for idx in counts_max])
+        source_syns = self.status.source_wn().count_synsets()
         no_translations = [synset.uid() for synset in self.status.source_wn().all_synsets()
                            if synset.uid() not in self.status.candidates]
 
@@ -107,40 +110,46 @@ class Stats:
             if min_ is None or count < min_:
                 min_ = count
             avg += count
-        avg = avg / len(candidates)
+        avg = '{:.5f}'.format(avg / len(candidates))
 
         # Coverage
-        manual = self.status.source_wn().mappings(self.status.target_wn())
+        manual, d_missing = self.status.manual, self.status.d_missing
 
         # Accuracy, monosemous, polisemous
         # Use distance later!
-        correct = sum(target_id == self.status.manual[source_id]
+        correct = sum(target_id == self.status.manual.get(source_id, None)
                       for source_id, target_id in self.status.relaxed.items())
         incorrect = len(self.status.relaxed) - correct
-        accuracy = correct / len(self.status.relaxed) if self.status.relaxed else 0
+        accuracy = '{:.4f}%'.format(correct * 100 / len(self.status.relaxed)
+                                    if self.status.relaxed else 0)
 
         # Dictionary
         stats.update({
+            # Distribution graph!
             'n_nodes': len(self.status.candidates),
             'n_labels': sum(counts),
-            # Distribution graph!
             'labels_max': max_,
-            'labels_min': min_,
+            # 'labels_min': min_,
             'labels_avg': avg,
-            'most_ambiguous': most_ambiguous,
-            'n_connections_per_type': 0,
-            'n_stable': 0,
-            'n_completed': 0,
-            'relaxed': len(self.status.relaxed),
-            'correct': correct,
-            'incorrect': incorrect,
+            # 'most_ambiguous': most_ambiguous,
+            # 'n_connections_per_type': 0,
+            # 'n_stable': 0,
+            # 'n_completed': 0,
             'manual': len(manual),
-            'accuracy': accuracy,
+            'manual_missing': len(d_missing),
+            'n_source_syn': source_syns,
+            'n_no_translations': len(no_translations),
+            's_lemma_coverage': self.status.s_lemma_coverage,
+            'd_lemma_coverage': self.status.d_lemma_coverage,
+            # Consider just keeping this value in stats or in config or sth
+            'n_lemmas_dicts': len(self.status.config.dicts()),
             'n_monosemous': len(self.status.monosemous),
             'n_polysemous': len(self.status.polysemous),
-            'n_no_translations': len(no_translations),
-            'n_no_candidates': len(no_candidates),
-            'dict_lemmas': self.status.config.translater().count(),
+            'relaxed': len(self.status.relaxed),
+            'n_no_connections': len(no_candidates),
+            'correct': correct,
+            'incorrect': incorrect,
+            'accuracy': accuracy,
         })
 
         stats.update(self.stat_iterations())

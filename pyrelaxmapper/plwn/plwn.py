@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import logging
+from collections import defaultdict
 
 from pyrelaxmapper import wordnet, utils
 from pyrelaxmapper.plwn import queries, files
@@ -8,6 +9,7 @@ from pyrelaxmapper.plwn import queries, files
 logger = logging.getLogger()
 
 
+# domains! from unitsstr
 class PLWordNet(wordnet.WordNet):
     """plWordNet wordnet interface for the MySQL plWN database.
 
@@ -35,6 +37,9 @@ class PLWordNet(wordnet.WordNet):
         self._domains = {}
         self._hypernym_layers_uid = {}
         self._hyponym_layers_uid = {}
+        self._manual = {}
+        # self._manual_certainty = {}
+        self._lemma_synsets = {}
 
         self._loaded = False
         super().__init__(parser, section, preload)
@@ -71,8 +76,14 @@ class PLWordNet(wordnet.WordNet):
             """
             return utils.make_session(self.db_file)
 
-    POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4,
-           'v_en': 5, 'n_en': 6, 'r_en': 7, 'a_en': 8}
+    POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4}
+    _POS = {1: 'v', 2: 'n', 3: 'r', 4: 'a',
+            5: 'v', 6: 'n', 7: 'r', 8: 'a'}
+
+    # should be in DB
+    # add weights
+    # status = ['Nie przetworzone', 'Częściowo przetworzone', 'Przetworzone',
+    #           'Błędne', 'Sprawdzone', 'Wątpliwe']
 
     @staticmethod
     def name_full():
@@ -117,19 +128,27 @@ class PLWordNet(wordnet.WordNet):
         return self._hypernym_paths.get(int(id_), [])
 
     def hypernym_layers(self, id_):
-            return self._hypernym_layers_uid.get(int(id_), [])
+        return self._hypernym_layers_uid.get(int(id_), [])
 
     def hyponyms(self, id_):
         return self._hyponyms.get(int(id_), [])
 
     def hyponym_layers(self, id_):
-            return self._hyponym_layers_uid.get(int(id_), [])
+        return self._hyponym_layers_uid.get(int(id_), [])
 
     def antonyms(self, id_):
         return self._antonyms.get(int(id_), [])
 
     def mappings(self, other_wn, recurse=True):
         """Existing mappings with another wordnet.
+
+        PWordNet unitsstr parsing:
+            unitsstr:
+               "(butyl alcohol 1* (sbst) [sbst] | butanol 1* (sbst))"
+            extract:
+                "butyl alcohol 1"
+            into sense tuple:
+               txt, num = ('butyl_alcohol', 1)
 
         Parameters
         ----------
@@ -140,13 +159,34 @@ class PLWordNet(wordnet.WordNet):
 
         Returns
         -------
-        dict
+        tuple of (dict, list)
+            Results: (mapped, dest_missing)
         """
+        # One-to-many? Max target, avg
         target_name = other_wn.name()
         if target_name in ['PWN', 'WordNet']:
             session = self._config.make_session()
-            return {row.id_: row.unitsstr
-                    for row in queries.pwn_mappings(session).all()}
+            manual = {}
+            d_missing = []
+            dest = defaultdict(int)
+            for row in queries.pwn_mappings(session).all():
+                *txt, num = row.unitsstr[1:row.unitsstr.find('*')].lower().split(' ')
+                txt = '_'.join(txt)
+                pos = self._POS[row.pos]
+                p_uid = '{}.{}.{:0>2}'.format(txt, pos, num)
+                d_syn = other_wn.synset(p_uid)
+                if d_syn:
+                    dest[d_syn.uid()] += 1
+                    manual[row.pl_uid] = d_syn.uid()
+                else:
+                    d_missing.append(p_uid)
+            max_ = max(dest.values())
+            avg_ = sum(dest.values()) * 100 / len(dest)
+            count_ = len(dest)
+            logger.info('max{}, avg{}, count{}'.format(max_, avg_, count_))
+            # max737, avg334.05302515295716, count36775
+            return manual, d_missing
+
         return super().mappings(other_wn, False)
 
     def load(self):
@@ -210,11 +250,11 @@ class PLWordNet(wordnet.WordNet):
             self._hypernym_layers_uid, self._hyponym_layers_uid = self.find_hh_layers()
 
             # Lexical Relations:
-            logger.info('{} Loading antonymy relations.'.format(text))
-            antonym_relid = self._reltypes['antonimia'].id_
-            for antonym in queries.lexical_relations(session, antonym_relid, pos):
-                self._antonyms.setdefault(antonym.child_id, []).append(
-                    self._lunits[antonym.parent_id])
+            # logger.info('{} Loading antonymy relations.'.format(text))
+            # antonym_relid = self._reltypes['antonimia'].id_
+            # for antonym in queries.lexical_relations(session, antonym_relid, pos):
+            #     self._antonyms.setdefault(antonym.child_id, []).append(
+            #         self._lunits[antonym.parent_id])
 
         self._loaded = True
         return self

@@ -67,6 +67,13 @@ class PWordNet(wordnet.WordNet):
     def version(self):
         return self._version
 
+    def synset(self, uid):
+        if isinstance(uid, str):
+            return self._synsets_name.get(uid)
+            # return next((syn for syn in self._synsets.values() if syn._name == uid), None)
+        else:
+            return self._synsets.get(uid)
+
     def synsets(self, lemma, pos=None):
         return [PSynset(self, synset) for synset in wn.synsets(lemma, pos)]
 
@@ -83,8 +90,11 @@ class PWordNet(wordnet.WordNet):
             logger.info('{} Loading synsets, relations, lemmas, and other info.'.format(text))
             if self._config.pos:
                 self._config.pos = self._config.pos[0]
+            # offset() index and container
             self._synsets = {synset.offset(): PSynset(self, synset)
                              for synset in wn.all_synsets(self._config.pos)}
+            # name() index
+            self._synsets_name = {synset.name(): synset for synset in self._synsets.values()}
 
             logger.info('{} Calculating hyper/hypo layers.'.format(text))
             self._hypernym_layers_uid, self._hyponym_layers_uid = self.find_hh_layers()

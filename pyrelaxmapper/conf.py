@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import csv
 import os
+from collections import defaultdict
 
-from pyrelaxmapper.dicts import Translater
 from pyrelaxmapper.dirmanager import DirManager
 from pyrelaxmapper.utils import clean
 from pyrelaxmapper.constrainer import Constrainer
@@ -29,7 +29,7 @@ class Config:
     """
     WORDNETS = [PLWordNet, PWordNet]
 
-    def __init__(self, parser, wn_classes=None, constrainer=None, translater=None):
+    def __init__(self, parser, wn_classes=None, constrainer=None, dicts=None):
         if not parser:
             raise ValueError('Configuration requires a ConfigParser to load.')
 
@@ -49,8 +49,10 @@ class Config:
         self.results = DirManager(results_dir, context)
         self.cache = DirManager(cache_dir, context)
 
-        self._dicts = [os.path.expanduser(dict_)
-                       for dict_ in parser['dirs'].get('dicts', []).split(',')]
+        self._dicts_path = parser['dirs'].get('dicts', [])
+        if self._dicts_path:
+            self._dicts_path = [os.path.expanduser(dict_)
+                                for dict_ in parser['dirs'].get('dicts', []).split(',')]
 
         self.pos = parser.get('relaxer', 'pos', fallback='').split(',')
 
@@ -70,21 +72,23 @@ class Config:
 
         # Incorporate into Translater
         self.cleaner = clean
-        self._translater = translater
+        self._dicts = dicts
 
     def __getstate__(self):
         # Save only source and target classes, not the data itself.
         parser = self._parser
         sections = ['source', 'target']
         source_wn, target_wn, = _select_wordnets(parser, sections, self._wn_classes)
+        if not self._target_wn or self._source_wn == self._target_wn:
+            self._target_wn = self._source_wn
         return (self._parser, self._wn_classes, source_wn, target_wn, self.data, self.results,
                 self.cache, self.pos, self.constraints, self.constr_weights, self.cleaner,
-                self._translater)
+                self._dicts_path, None)
 
     def __setstate__(self, state):
         (self._parser, self._wn_classes, self._source_wn, self._target_wn, self.data, self.results,
          self.cache, self.pos, self.constraints, self.constr_weights, self.cleaner,
-         self._translater) = state
+         self._dicts_path, self._dicts) = state
 
     def map_name(self):
         """Mapping name for folder organization."""
@@ -98,7 +102,7 @@ class Config:
         self.source_wn()
         self.target_wn()
         self.constrainer()
-        self.translater()
+        self.dicts()
 
     def loaded(self):
         """Is large data loaded."""
@@ -127,16 +131,16 @@ class Config:
                                             self.constraints, self.constr_weights)
         return self._constrainer
 
-    def translater(self):
+    def dicts(self):
         """Mapping algorithm constrainer."""
-        if not self._translater:
-            dicts = self._load_dicts()
-            self._translater = Translater(dicts, self.cleaner)
-        return self._translater
+        if not self._dicts:
+            self._dicts = self._load_dicts()
+            # self._translater = Translater(dicts, self.cleaner)
+        return self._dicts
 
     def _load_dicts(self):
         dicts = {}
-        for path in self._dicts:
+        for path in self._dicts_path:
             name = os.path.basename(path)
             name = name[:name.rfind('.')].title()
             dicts.update(self.data.rw_lazy(name, self._load_dict, [path]))
@@ -144,11 +148,11 @@ class Config:
 
     # TODO: Lower?
     def _load_dict(self, filename):
-        dict_ = {}
+        dict_ = defaultdict(set)
         with open(filename, 'r') as file:
             reader = csv.reader(file, delimiter=' ')
             for row in reader:
-                dict_.setdefault(row[0], set()).add(row[1])
+                dict_[self.cleaner(row[0])].add(self.cleaner(row[1]))
         return dict_
 
 

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Main Application commands."""
 import os
+from configparser import ConfigParser
 from enum import Enum
 import logging
 
@@ -93,9 +94,11 @@ def config_load(conf_file):
     """Load configuration parser and merge with file if present."""
     click.secho('Loading configuration.', fg=CInfo)
 
-    parser = fileutils.conf_merge()
     if conf_file:
+        parser = ConfigParser()
         parser.read_file(conf_file)
+    else:
+        parser = fileutils.conf_merge()
 
     return conf.Config(parser)
 
@@ -117,6 +120,7 @@ def config_clean(config):
 
 
 # To file?
+# List Active!
 def config_list(conf_file):
     """List application configuration."""
     click.secho('Configuration summary:', color=CInfo)
@@ -130,7 +134,7 @@ def config_list(conf_file):
         click.secho('\nRLCONF:', fg=CInfo)
         click.echo(''.join([path, ' <-(exists)' if os.path.exists(path) else '']))
 
-    click.secho('\nMerged configuration:', fg=CInfo)
+    click.secho('\nConfiguration listing (with diff):', fg=CInfo)
     default = fileutils.conf_merge([fileutils.dir_pkg_conf()])
     merged = fileutils.conf_merge()
     if conf_file:
@@ -143,15 +147,17 @@ def config_list(conf_file):
         for key in keys:
             v_merged = merged.get(section, key, fallback='')
             v_default = default.get(section, key, fallback='')
+            value = v_merged
             diff = ' '
             if v_merged and not v_default:
                 diff = '+'
             elif not v_merged and v_default:
                 diff = '-'
+                value = v_default
             elif v_merged != v_default:
                 diff = '~'
             diff += ' '
-            value = os.path.expanduser(v_merged)
+            value = os.path.expanduser(value)
             exists = ' <-(exists)' if os.path.exists(value) else ''
             click.echo(''.join(['\t', diff, key, ' = ', value, exists]))
 
@@ -186,7 +192,7 @@ def config_erase(conf_file):
 
 def config_file():
     """Path to app config file."""
-    return fileutils.conf_app_path()
+    return fileutils.in_lowest_path('conf.ini')
 
 
 #######################################################################
@@ -217,7 +223,7 @@ def logger_reset(debug=True):
 
 def logger_file():
     """Path to app config file."""
-    return os.path.join(fileutils.conf_app_path(), 'logging.ini')
+    return os.path.join(fileutils.dir_app_data(), 'logging.ini')
 
 
 def logger_edit():

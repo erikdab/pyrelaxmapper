@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """plWordNet DB queries."""
 from sqlalchemy import orm
-from sqlalchemy.sql import func, expression
+from sqlalchemy.sql import func
+from sqlalchemy.sql.expression import label
 
 from pyrelaxmapper.plwn.models import (Parameter, LexicalUnit, Synset, SynsetRelation,
                                        RelationType, UnitSynset, LexicalRelation)
@@ -60,7 +61,7 @@ def pwn_mappings(session, pos=None, pos_en=None):
     syns_en = orm.aliased(Synset)
     uas_pl = orm.aliased(UnitSynset)
     lunit_pl = orm.aliased(LexicalUnit)
-    return (session.query(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
+    return (session.query(label('pl_uid', Synset.id_), syns_en.unitsstr, LexicalUnit.pos)
             .join(SynsetRelation, Synset.id_ == SynsetRelation.parent_id)
             .join(syns_en, SynsetRelation.child_id == syns_en.id_)
 
@@ -113,8 +114,8 @@ def synsets(session, pos=None):
     if not pos:
         pos = [2]
     return (session.query(Synset.id_, Synset.definition,
-                          expression.label('lex_ids', func.group_concat(UnitSynset.lex_id)),
-                          expression.label('unitindexes', func.group_concat(UnitSynset.unitindex))
+                          label('lex_ids', func.group_concat(UnitSynset.lex_id)),
+                          label('unitindexes', func.group_concat(UnitSynset.unitindex))
                           )
             .join(UnitSynset)
             .join(LexicalUnit)

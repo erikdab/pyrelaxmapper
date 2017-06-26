@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """WordNet interface."""
+from collections import defaultdict
 from enum import Enum
 import logging
 
@@ -155,13 +156,14 @@ class WordNet:
         ----------
         cleaner : func
         """
-        lemmas = {}
+        # TODO: Preserve the counts some how!
+        lemmas = defaultdict(list)
         self._count_lunits = 0
         for synset in self.all_synsets():
             for lunit in synset.lemmas():
                 self._count_lunits += 1
                 lemma = cleaner(lunit.name())
-                lemmas.setdefault(lemma, []).append(synset.uid())
+                lemmas[lemma].append(synset.uid())
         self._count_lemmas = len(lemmas)
         return lemmas
 
@@ -174,12 +176,17 @@ class WordNet:
             Short name of target WordNet to look for existing mappings to.
         recurse : bool
             Whether to check the other wordnet, only once
+
+        Returns
+        -------
+        tuple of (dict, list)
+            Results: (mapped, dest_missing)
         """
         if other_wn == self:
-            return {synset.uid(): synset.uid() for synset in self.all_synsets()}
+            return {synset.uid(): synset.uid() for synset in self.all_synsets()}, {}
         elif recurse:
             return other_wn.mappings(self, False)
-        return None
+        return None, None
 
     # Could create unified enum
     def pos(self):
