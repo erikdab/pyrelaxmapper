@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
+import os
 
+import nltk
 from nltk.corpus import wordnet as wn
 
 from pyrelaxmapper import wordnet
@@ -46,6 +48,9 @@ class PWordNet(wordnet.WordNet):
 
         def __init__(self, parser, section='source'):
             self.pos = parser.get('relaxer', 'pos', fallback='').split(',')
+            self.dir = parser.get(section, 'nltk-data', fallback='')
+            if self.dir and os.path.exists(self.dir):
+                nltk.data.path.append(self.dir)
 
     POS = {'v': 1, 'n': 2, 'r': 3, 'a': 4}
 
