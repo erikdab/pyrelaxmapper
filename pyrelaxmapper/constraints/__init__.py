@@ -1,34 +1,39 @@
 # -*- coding: utf-8 -*-
 
 
-# Should be passed a dict from the parser! (empty if non)
 class Constraint:
     """A single constraint to be used in Relaxation labeling.
 
     Parameters
     ----------
-    orig : pyrelaxmapper.wordnet.WordNet
-    dest : pyrelaxmapper.wordnet.WordNet
-    weights : dict
+    cnames : list of str
+    cweights : dict
     """
-    def __init__(self, orig, dest, weights):
-        self.orig = orig
-        self.dest = dest
-        self.weights = weights
+    def __init__(self, cnames, cweights):
+        self.cnames = cnames
+        self.cweights = cweights
 
-    def apply(self, mapped, node):
-        """Apply constraint to node.
+    def apply(self, status, node):
+        """Apply constraints to node.
 
         Parameters
         ----------
-        mapped : dict of int
+        status : pyrelaxmapper.status.Status
         node : pyrelaxmapper.status.Node
         """
         pass
 
-    def uid(self):
+    @staticmethod
+    def uid():
+        """Constraint uid."""
         pass
 
     @staticmethod
-    def isconstraint(constraint):
+    def cnames_all():
+        """Names of constraints which this constraint contains.
+
+        Returns
+        -------
+        set of str
+        """
         pass

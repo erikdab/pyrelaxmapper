@@ -18,43 +18,41 @@ class Constrainer:
 
     Parameters
     ----------
-    orig : pyrelaxmapper.wordnet.WordNet
-    dest : pyrelaxmapper.wordnet.WordNet
-    constraints : list of str
-    constr_weights : dict
+    cnames : list of str
+    cweights : dict
     """
 
-    def __init__(self, orig, dest, constraints, constr_weights):
-        self.orig = orig
-        self.dest = dest
-        self._constr = []
-        # self._constr_str = constraints
-        # self._constr_types = self.CONSTRAINTS[:]
-        # self._constr_weights = constr_weights
-        self._setup_constraints()
+    def __init__(self, cnames, cweights):
+        self.constraints = []
+        self.ctypes = self.CONSTRAINTS[:]
+        self.add_constraints(cnames, cweights)
 
-    # CONSTRAINTS = [HyperHypoConstraint, WordsConstraint, GlossConstraint,
-    #                DaughtersConstraint]
+    CONSTRAINTS = [HHConstraint]
 
-    def _setup_constraints(self):
-        # constr_str = self._constr_str
-        # if not constr_str:
-        #     return
-        # constr_weights = self._constr_weights
-        # for constr_uid in constr_str:
-        #     for constr_cls in self._constr_types:
-        #         if constr_cls.isconstraint(constr_uid):
-        #             self._constr.append(constr_cls(constr_uid, constr_weights[constr_uid]))
-        # self._constr.append(HyperHypoConstraint(self.orig, self.dest, {}))
-        self._constr.append(HHConstraint(self.orig, self.dest, {}))
+    def add_constraints(self, cnames, cweights):
+        """Parse and add constraints.
 
-    def apply(self, mapped, node):
+        Returns
+        -------
+        cnames : list of str
+        cweights : dict
+        """
+        if not cnames:
+            return
+        for ctype in self.ctypes:
+            cnames_ = ctype.cnames_all()
+            match = cnames_.intersection(cnames)
+            if match:
+                cweights_ = cweights.get(ctype.uid(), {})
+                self.constraints.append(ctype(match, cweights_))
+
+    def apply(self, status, node):
         """Apply constraints to node.
 
         Parameters
         ----------
-        mapped : dict
-        node : list of Node
+        status : pyrelaxmapper.status.Status
+        node : pyrelaxmapper.status.Node
         """
-        for constraint in self._constr:
-            constraint.apply(mapped, node)
+        for constraint in self.constraints:
+            constraint.apply(status, node)

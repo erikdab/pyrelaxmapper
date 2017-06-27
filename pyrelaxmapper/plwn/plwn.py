@@ -38,7 +38,6 @@ class PLWordNet(wordnet.WordNet):
         self._hypernym_layers_uid = {}
         self._hyponym_layers_uid = {}
         self._manual = {}
-        # self._manual_certainty = {}
         self._lemma_synsets = {}
 
         self._loaded = False

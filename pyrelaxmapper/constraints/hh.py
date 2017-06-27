@@ -12,18 +12,17 @@ from pyrelaxmapper.constraints import Constraint
 logger = logging.getLogger()
 
 
-# TODO: Init from config file.
 # TODO: Use only HHType to speed up hashing!
 class HHConstraint(Constraint):
     """Constraints which utilize hyper/hyponym connections."""
 
-    def __init__(self, orig, dest, weights):
-        super().__init__(orig, dest, weights)
-        # codes = ['ii', 'aa', 'ai', 'ia']
-        codes = ['aa']
-        # Anything better?
-        self.rel_weight = {HHDirection.hyper: 1.0, HHDirection.hypo: 0.93}
-        self.hhtypes = [hhtype for code in set(codes) for hhtype in HHType.factory(code)]
+    def __init__(self, cnames, cweights):
+        super().__init__(cnames, cweights)
+        self.rel_weight = {HHDirection.hyper: cweights['hyper'],
+                           HHDirection.hypo: cweights['hypo']}
+
+        # Because HHType.factory can produce more than one! (ii -> iie, iio, iib)
+        self.hhtypes = [hhtype for code in cnames for hhtype in HHType.factory(code)]
         self.o_any_recurse, self.d_any_recurse = _any_recurse(self.hhtypes)
 
     # Relation_uids takes some time.
@@ -33,15 +32,19 @@ class HHConstraint(Constraint):
     # Hashing used to take longer, now I "cached" the hash
     # Calculating weights isn't super fast either.
     # Convert 10 constraints to HHType!? Maybe, COULD BE DONE! maybe drop the other enums?
-    def apply(self, mapped, node):
+    # Pass Status HERE!?
+    def apply(self, status, node):
+        mapped = status.mappings
+        orig = status.source_wn()
+        dest = status.target_wn()
         o_any_recurse, d_any_recurse, rel_weight, hhtypes = (
             self.o_any_recurse, self.d_any_recurse, self.rel_weight, self.hhtypes)
 
         avg_labels = 10 / (node.count() ** 2)
-        o_hyper, o_hypo = _relation_uids(self.orig.synset(node.source), o_any_recurse)
+        o_hyper, o_hypo = _relation_uids(orig.synset(node.source), o_any_recurse)
 
         for idx, label in enumerate(node.labels):
-            d_hyper, d_hypo = _relation_uids(self.dest.synset(label), d_any_recurse)
+            d_hyper, d_hypo = _relation_uids(dest.synset(label), d_any_recurse)
             conn = {
                 HHDirection.hyper: _connections(mapped, o_hyper, d_hyper),
                 HHDirection.hypo: _connections(mapped, o_hypo, d_hypo)
@@ -52,6 +55,14 @@ class HHConstraint(Constraint):
             )
             node.add_weight(idx, weight)
 
+    @staticmethod
+    def uid():
+        return 'hyperhypo'
+
+    @staticmethod
+    def cnames_all():
+        dirs = ['', 'e', 'o', 'b']
+        return {'{}{}'.format(imm, dir_) for imm in ['ii', 'ai', 'ia', 'aa'] for dir_ in dirs}
 
 #######################################################################
 # HH Types

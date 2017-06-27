@@ -11,6 +11,7 @@ from pyrelaxmapper import dicts
 logger = logging.getLogger()
 
 
+# TODO: CLEAN UP!
 class Node:
     """RL variable, a source taxonomy synset, with target labels.
 

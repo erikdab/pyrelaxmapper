@@ -22,60 +22,42 @@ class Relaxer:
 
     def __init__(self, config):
         self.config = config
-        # Load on demand (because of eval_relax)
-        # Or creat
-        self.constrainer = config.constrainer()
         self.status = Status(self.config)
         self.stats = Stats(self.status)
 
-    def save_stats(self, file):
-        writer = csv.writer(file, delimiter='\t')
-        writer.writerows(self.stats.stat_final().items())
-
     def relax(self):
         """Run relaxation labeling with all constraints in config."""
-        self._relax_loop(self.constrainer)
-
-    def eval_relax(self):
-        """Run relaxation labeling evaluating constraint combinations."""
-        # Series of combinations selected by the user!
-        # Create
-        # Maybe groups? And only all elements in groups are iterated over
-        for constraint in []:
-            self._relax_loop(self.constrainer)
-
-    def _relax_loop(self, constrainer):
-        iteration = self.status.iteration()
+        key = 'iteration'
         writer = csv.writer(sys.stdout, delimiter='\t')
-        while iteration.index <= 1 or self.status.iterations[-2].changed():
-            key = 'iteration'
-            iteration.start(key)
-            iteration.add_count(key, len(self.status.remaining))
-            click.secho('Iteration: {}'.format(iteration.index), fg='blue')
-            self._relax(constrainer)
-            iteration.stop(key)
-            writer.writerows(self.stats.stat_iteration(iteration, True).items())
-            # sys.exit(1)
-            if not iteration.changed():
-                break
-            iteration = self.status.push_iteration()
-        writer.writerows(self.stats.stat_total().items())
 
-    def _relax(self, constrainer):
-        todo = self.status.remaining.values()
-        with click.progressbar(todo, label='Constraining nodes:') as nodes:
-            # for node in nodes:
-            for idx, node in enumerate(nodes):
-                # if idx > 0 and idx % 50 == 0:
-                #     return
-                # Perhaps will find CHANGE rather than reset? Look at article
+        status = self.status
+        iteration = status.iteration()
+        while iteration.index <= 1 or self.status.iterations[-2].changed():
+            click.secho('Iteration: {}'.format(iteration.index), fg='blue')
+
+            iteration.add_count(key, len(self.status.remaining))
+
+            iteration.start(key)
+            self._relax_loop()
+            iteration.stop(key)
+
+            writer.writerows(self.stats.stat_iteration(iteration, True))
+
+            iteration = self.status.push_iteration()
+
+        iteration = self.status.pop_iteration()
+        writer.writerows(self.stats.stat_total())
+
+    def _relax_loop(self):
+        """Run relaxation labeling iteration for all remaining nodes."""
+        remaining = self.status.remaining.values()
+        with click.progressbar(remaining, label='Constraining nodes:') as nodes:
+            for node in nodes:
+
                 node.weights_reset()
 
-                constrainer.apply(self.status.mappings, node)
+                self.config.constrainer.apply(self.status, node)
 
-                # Makes sense, doesn't work.
-                # node.weights = utils.normalized(node.weights)
-                # Perhaps will find CHANGE rather than drop all others?
                 self._iteration_changes(node)
 
     def _iteration_changes(self, node):

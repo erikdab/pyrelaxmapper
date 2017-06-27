@@ -24,7 +24,7 @@ class Config:
         WordNets to add to be loadable from configuration parser.
     constrainer : pyrelaxmapper.constrainer.Constrainer, optional
         Constrainer contains constraints for relaxation labeling.
-    translater : pyrelaxmapper.dicts.Translater, optional
+    dicts : pyrelaxmapper.dicts.Translater, optional
         Translater between esp. multi-lingual wordnets.
     """
     WORDNETS = [PLWordNet, PWordNet]
@@ -37,10 +37,7 @@ class Config:
 
         self._wn_classes = self.WORDNETS[:]
         _add_wn_classes(self._wn_classes, wn_classes)
-        sections = ['source', 'target']
-        self._source_wn, self._target_wn = _select_wordnets(parser, sections, self._wn_classes)
-        if not self._target_wn or self._source_wn == self._target_wn:
-            self._target_wn = self._source_wn
+        self._source_wn, self._target_wn = self.get_wn_classes()
 
         dirs = ['data', 'results', 'cache']
         data_dir, results_dir, cache_dir = _parse_dirs(parser, 'dirs', dirs)
@@ -49,46 +46,48 @@ class Config:
         self.results = DirManager(results_dir, context)
         self.cache = DirManager(cache_dir, context)
 
-        self._dicts_path = parser['dirs'].get('dicts', [])
-        if self._dicts_path:
-            self._dicts_path = [os.path.expanduser(dict_)
-                                for dict_ in parser['dirs'].get('dicts', []).split(',')]
+        self._dicts_dir = parser['dirs'].get('dicts', [])
+        if self._dicts_dir:
+            self._dicts_dir = [os.path.expanduser(dict_)
+                               for dict_ in parser['dirs'].get('dicts', []).split(',')]
 
-        self.pos = parser.get('relaxer', 'pos', fallback='').split(',')
+        section = 'relaxer'
+        self.pos = parser.get(section, 'pos', fallback='').split(',')
 
-        self.constraints = ['ii']
-        self.constr_weights = {'ii': [0, 0, 0]}
-        self._constrainer = constrainer
+        cnames = parser.get(section, 'cnames', fallback='').split(',')
+        if not cnames:
+            raise KeyError('Relaxation labeling requires at least one constraint!')
 
-        # if not parser.has_option(section, 'constraints'):
-        #     raise KeyError('Relaxation labeling requires at least one constraint!')
-        # self._constraints = parser[section]['constraints'].split(',')
+        cweights = defaultdict(lambda: defaultdict(float))
+        for key, value in parser.items('weights'):
+            ctype, ckey = key.split('_')
+            cweights[ctype][ckey] = float(value)
 
-        # for constraint in self._constraints:
-        #     option = 'weights_{}'.format(constraint)
-        # if not parser.has_option(section, option):
-        #     raise KeyError('Constraint weight missing: [{}][{}]'.format(constraint, option))
-        # self._constr_weights[constraint] = parser[section][option]
+        self.constrainer = constrainer if constrainer else Constrainer(cnames, cweights)
 
         # Incorporate into Translater
         self.cleaner = clean
         self._dicts = dicts
 
-    def __getstate__(self):
-        # Save only source and target classes, not the data itself.
+    def get_wn_classes(self):
+        """Get WordNet classes for source and target."""
         parser = self._parser
         sections = ['source', 'target']
-        source_wn, target_wn, = _select_wordnets(parser, sections, self._wn_classes)
-        if not self._target_wn or self._source_wn == self._target_wn:
-            self._target_wn = self._source_wn
-        return (self._parser, self._wn_classes, source_wn, target_wn, self.data, self.results,
-                self.cache, self.pos, self.constraints, self.constr_weights, self.cleaner,
-                self._dicts_path, None)
+        source_cls, target_cls, = _select_wordnets(parser, sections, self._wn_classes)
+        if not target_cls or source_cls == target_cls:
+            target_cls = source_cls
+        return source_cls, target_cls
+
+    def __getstate__(self):
+        # Save only source and target classes, not the data itself.
+        source_cls, target_cls = self.get_wn_classes()
+        return (self._parser, self._wn_classes, source_cls, target_cls, self.data, self.results,
+                self.cache, self.pos, self.constrainer, self.cleaner, self._dicts_dir, None)
 
     def __setstate__(self, state):
         (self._parser, self._wn_classes, self._source_wn, self._target_wn, self.data, self.results,
-         self.cache, self.pos, self.constraints, self.constr_weights, self.cleaner,
-         self._dicts_path, self._dicts) = state
+         self.cache, self.pos, self.constrainer, self.cleaner, self._dicts_dir,
+         self._dicts) = state
 
     def map_name(self):
         """Mapping name for folder organization."""
@@ -101,12 +100,11 @@ class Config:
         """Preload large data."""
         self.source_wn()
         self.target_wn()
-        self.constrainer()
         self.dicts()
 
     def loaded(self):
         """Is large data loaded."""
-        return self._source_wn.loaded() and self._target_wn.loaded() and self._constrainer
+        return self._source_wn.loaded() and self._target_wn.loaded()
 
     def ensure_wn(self, wordnet):
         """Ensure wordnet is loaded, cache is saved and return it."""
@@ -124,13 +122,6 @@ class Config:
         self._target_wn = self.ensure_wn(self._target_wn)
         return self._target_wn
 
-    def constrainer(self):
-        """Mapping algorithm constrainer."""
-        if not self._constrainer:
-            self._constrainer = Constrainer(self.source_wn(), self.target_wn(),
-                                            self.constraints, self.constr_weights)
-        return self._constrainer
-
     def dicts(self):
         """Mapping algorithm constrainer."""
         if not self._dicts:
@@ -140,7 +131,7 @@ class Config:
 
     def _load_dicts(self):
         dicts = {}
-        for path in self._dicts_path:
+        for path in self._dicts_dir:
             name = os.path.basename(path)
             name = name[:name.rfind('.')].title()
             dicts.update(self.data.rw_lazy(name, self._load_dict, [path]))

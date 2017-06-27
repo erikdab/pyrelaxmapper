@@ -52,12 +52,10 @@ def enum_factory(enum_type, values):
 # String functions
 
 def clean(term):
-    """Clean symbols for term."""
-    # Return symbols or numbers
+    """Clean term. Terms without any letters are left alone."""
     if not re.search('[a-zA-Z]', term):
         return term
 
-    # Clean text, :
     rep = {'(': '', ')': '', 'the ': '', '/': '', ' ': '_', '-': '_', ',': '', ':': ''}
     d = multi_replace(term.strip().lower(), rep).strip()
     return d
