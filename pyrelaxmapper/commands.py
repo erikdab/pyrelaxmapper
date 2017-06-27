@@ -182,12 +182,13 @@ def logger_reset(debug=True):
 
     click.secho('Logger mode set to {}'.format(name), fg=color)
 
+    # Can throw permission error.
     fileutils.cp_conf_app_data('logging{}.ini'.format(ending), 'logging.ini')
 
 
 def logger_file():
     """Path to app config file."""
-    return os.path.join(fileutils.dir_app_data(), 'logging.ini')
+    return fileutils.last_in_paths('logging.ini')
 
 
 def logger_edit():

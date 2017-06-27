@@ -63,6 +63,10 @@ def test_config():
     assert result.exit_code == 0
     assert 'Configuration summary:' in result.output
 
+    result = runner.invoke(cli.config, ['reset', '--yes'])
+    assert result.exit_code == 0
+    assert 'Config reset to defaults.' in result.output
+
     # With file, check for diffs
     # result = runner.invoke(cli.config, ['list'])
     # assert result.exit_code == 0
@@ -79,6 +83,8 @@ def test_logger():
     assert result.exit_code == 0
     assert cli.logger.__doc__.splitlines()[0] in result.output
 
+    # If results matches last_in_paths
+    # It would be easier to test if we could pass a file
     result = runner.invoke(cli.logger, ['list'])
     assert result.exit_code == 0
     assert 'Logger level' in result.output
