@@ -51,7 +51,7 @@ def conf_merge(paths=search_paths()):
     ConfigParser
         Single config parser with merged settings.
     """
-    file_paths = in_lowest_path('conf.ini', paths)
+    file_paths = last_in_paths('conf.ini', paths)
     parser = ConfigParser()
     parser.read(file_paths)
     return parser
@@ -91,7 +91,7 @@ def cp_data_app_data(source_name, target_name=None):
     cp(dir_pkg_data(), source_name, dir_app_data(), target_name)
 
 
-def in_lowest_path(filename, paths=search_paths()):
+def last_in_paths(filename, paths=search_paths()):
     """Find last file with pattern in paths.
 
     Parameters

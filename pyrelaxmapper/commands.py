@@ -14,7 +14,6 @@ from pyrelaxmapper.stats import Stats
 logger = logging.getLogger()
 
 # Click Colors
-# TODO: turn into enum?
 CSuccess = 'green'
 CInfo = 'blue'
 CError = 'red'
@@ -23,9 +22,6 @@ CWarn = 'yellow'
 
 def make_actions(actions, conf_file):
     """Make actions in correct order."""
-    # Remove these logs. Now just for test.
-    logger.info('Start.')
-
     config = config_load(conf_file)
 
     if Action.Clean in actions:
@@ -33,28 +29,20 @@ def make_actions(actions, conf_file):
 
     status = None
     if Action.Relax in actions:
-        # could merge
-        relaxer = relaxer_load(config)
-        status = relaxer_relax(relaxer)
+        status = relaxer_relax(config)
 
-    # Maybe should be able to pass status file as option/input etc.
     if Action.Stats in actions:
         relaxer_stats(status, config)
-
-    logger.info('End.')
 
 
 #######################################################################
 # Relaxer and statistics.
 
-def relaxer_load(config):
-    """Load relaxer."""
+def relaxer_relax(config):
+    """Load and Run RL Algorithm."""
     click.secho('Loading large data for RL algorithm.', fg=CInfo)
-    return relax.Relaxer(config)
+    relaxer = relax.Relaxer(config)
 
-
-def relaxer_relax(relaxer):
-    """Run RL Algorithm."""
     click.secho('Running RL algorithm.', fg=CInfo)
     relaxer.relax()
     config = relaxer.config
@@ -64,7 +52,6 @@ def relaxer_relax(relaxer):
     return relaxer.status
 
 
-# Create result selector?
 def relaxer_stats(status, config):
     """Save statistics for RL Algorithm."""
     result_n = 'stats.csv'
@@ -105,36 +92,30 @@ def config_load(conf_file):
 
 def config_clean(config):
     """Clean all cache files."""
-    click.secho('Cleaning all caches, reloading should take around a minute.', fg=CInfo)
+    click.secho('Cleaning all caches, next load will take up to a minute.', fg=CInfo)
     config.cache.remove_all()
 
 
-# def configure(config, clean, force_config):
-#     if force_config:
-#         click.secho('Cleaning configuration cache.', fg=CInfo)
-#     if force_config or not config.cache.exists('Config', True):
-#         click.secho('Pre-loading data.', fg=CInfo)
-#         config.preload()
-#         click.secho('Writing configuration cache.', fg=CInfo)
-#     return config.cache.rw('Config', config, True, force=force_config)
-
-
-# To file?
-# List Active!
 def config_list(conf_file):
     """List application configuration."""
     click.secho('Configuration summary:', color=CInfo)
     click.secho('Search paths:', fg=CInfo)
-    for path in fileutils.search_paths():
-        path = os.path.join(path, 'conf.ini')
-        click.echo(''.join([path, ' <-(exists)' if os.path.exists(path) else '']))
 
-    path = os.environ.get('RLCONF', '')
-    if path:
-        click.secho('\nRLCONF:', fg=CInfo)
-        click.echo(''.join([path, ' <-(exists)' if os.path.exists(path) else '']))
+    active_path = conf_file.name
+    rlconf = os.environ.get('RLCONF', '')
 
-    click.secho('\nConfiguration listing (with diff):', fg=CInfo)
+    paths = [fileutils.dir_pkg_conf(), fileutils.dir_app_data()]
+    paths = [os.path.join(path, 'conf.ini') for path in paths]
+    if active_path not in paths:
+        paths.append(active_path)
+    for path in paths:
+        opt = 'option: ' if len(paths) == 3 and path == paths[2] else ''
+        env = '$RLCONF: ' if path == rlconf else opt
+        exists = ' <-(exists)' if os.path.exists(path) else ''
+        active = ' and active' if path == active_path else ''
+        click.echo(''.join([env, path, exists, active]))
+
+    click.secho('\nConfiguration listing (diff to defaults):', fg=CInfo)
     default = fileutils.conf_merge([fileutils.dir_pkg_conf()])
     merged = fileutils.conf_merge()
     if conf_file:
@@ -162,37 +143,20 @@ def config_list(conf_file):
             click.echo(''.join(['\t', diff, key, ' = ', value, exists]))
 
 
-def config_exists():
-    """Does user config file exist?"""
-    return os.path.exists(fileutils.conf_app_path())
-
-
-def config_remove(conf_file):
-    """Reset app config."""
-    conf_file.write('')
-
-
-# Edit writes by default if not exists.
-
-# Removes
 def config_reset(conf_file):
     """Reset app config."""
     path = fileutils.ensure_path(fileutils.dir_pkg_conf(), 'conf.ini')
     with open(path) as file:
         conf_file.write(file.read())
-    # fileutils.cp_conf_app_data(conf_file)
     click.secho('Config reset to defaults.', fg=CInfo)
-
-
-def config_erase(conf_file):
-    """Erase config."""
-    if os.path.exists(fileutils.conf_app_path()):
-        conf_file.write('')
 
 
 def config_file():
     """Path to app config file."""
-    return fileutils.in_lowest_path('conf.ini')
+    path = fileutils.conf_app_path()
+    if not os.path.exists(path):
+        fileutils.cp_conf_app_data('conf.ini', 'conf.ini')
+    return path
 
 
 #######################################################################
@@ -228,7 +192,7 @@ def logger_file():
 
 def logger_edit():
     """Edit logger config file."""
-    click.edit(filename=fileutils.in_lowest_path('logging.ini'))
+    click.edit(filename=fileutils.last_in_paths('logging.ini'))
 
 
 #######################################################################

@@ -37,7 +37,8 @@ def validate_actions(ctx, param, values):
 def conf_option(mode='r'):
     """Config file loader using Click option decorator.
 
-    Loads first in order: -c PATH, $RLCONF, app-dir, pkg-conf.
+    Returns first in order: -c PATH, $RLCONF, app-dir
+    If editable, fallback = pkg-conf
 
     Parameters
     ----------
@@ -46,6 +47,13 @@ def conf_option(mode='r'):
     """
     return click.option('conf_file', '-c', envvar='RLCONF', default=commands.config_file(),
                         type=click.File(mode), help='Configuration file.')
+
+
+def confirm_option(confirm):
+    """Action confirmation using Click Prompt option."""
+    return click.option('--yes', is_flag=True, callback=abort_if_false,
+                        expose_value=False,
+                        prompt='Are you sure you want to {}?'.format(confirm))
 
 
 #######################################################################
@@ -80,29 +88,27 @@ def make(actions, conf_file):
 # Configuration Interface.
 
 @main.group('config')
-def config_group():
+def config():
     """Configuration utilities."""
     pass
 
 
-@config_group.command('list')
+@config.command('list')
 @conf_option()
 def config_list(conf_file):
-    """List merged application configuration."""
+    """List user config file diff /w defaults."""
     commands.config_list(conf_file)
 
 
-@config_group.command('reset')
-@click.option('--yes', is_flag=True, callback=abort_if_false,
-              expose_value=False,
-              prompt='Are you sure you want to reset config?')
+@config.command('reset')
+@confirm_option('reset user config')
 @conf_option('w')
 def config_reset(conf_file):
-    """Set user config file to defaults."""
+    """Reset user config file to defaults."""
     commands.config_reset(conf_file)
 
 
-@config_group.command('edit')
+@config.command('edit')
 @conf_option()
 def config_edit(conf_file):
     """Edit user config file."""
@@ -113,18 +119,18 @@ def config_edit(conf_file):
 # Logger Interface.
 
 @main.group('logger')
-def logger_group():
+def logger():
     """Select logger config mode."""
     pass
 
 
-@logger_group.command('list')
+@logger.command('list')
 def logger_list():
     """Current logger level."""
     commands.logger_list()
 
 
-@logger_group.command('select')
+@logger.command('select')
 @click.option('--level', type=click.Choice(['release', 'debug']))
 def logger_set(level):
     """Select logger level."""
@@ -135,7 +141,7 @@ def logger_set(level):
     commands.logger_reset(level == 'debug')
 
 
-@logger_group.command('edit')
+@logger.command('edit')
 def logger_edit():
     """Edit logger config file."""
     click.edit(filename=commands.logger_file())
