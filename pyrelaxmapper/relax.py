@@ -41,12 +41,12 @@ class Relaxer:
             self._relax_loop()
             iteration.stop(key)
 
-            writer.writerows(self.stats.stat_iteration(iteration, True))
+            writer.writerows(self.stats.stat_iteration(iteration, True).items())
 
             iteration = self.status.push_iteration()
 
         iteration = self.status.pop_iteration()
-        writer.writerows(self.stats.stat_total())
+        writer.writerows(self.stats.stat_total().items())
 
     def _relax_loop(self):
         """Run relaxation labeling iteration for all remaining nodes."""

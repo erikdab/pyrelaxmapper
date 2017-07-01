@@ -6,7 +6,7 @@ import time
 
 from collections import defaultdict
 
-from pyrelaxmapper import dicts
+from pyrelaxmapper import translate
 
 logger = logging.getLogger()
 
@@ -152,7 +152,7 @@ class Status:
             args = [source_lemmas, target_lemmas, translater]
             (self.candidates, ((self.s_lemma_coverage, self.s_lemma_count),
                                (self.d_lemma_coverage, self.d_lemma_count))) \
-                = cache.rw_lazy('Candidates', dicts.find_candidates, args, True)
+                = cache.rw_lazy('Candidates', translate.find_candidates, args, True)
         else:
             (self.candidates, ((self.s_lemma_coverage, self.s_lemma_count),
                                (self.d_lemma_coverage, self.d_lemma_count))) \

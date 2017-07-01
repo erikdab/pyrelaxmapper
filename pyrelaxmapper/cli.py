@@ -112,6 +112,7 @@ def config_reset(conf_file):
 @conf_option()
 def config_edit(conf_file):
     """Edit user config file."""
+    # If not exists, ask user if we want to create it.
     click.edit(filename=conf_file.name)
 
 

@@ -6,6 +6,12 @@ from collections import defaultdict
 logger = logging.getLogger()
 
 
+class Dictionary:
+    # Maybe also source_wn, target_wn (so that we can analyze POS)
+    def translate(source_lemmas, target_lemmas):
+        pass
+
+
 def find_candidates(source_lemmas, target_lemmas, dictionary):
     """Search for candidates between wordnet synsets.
 
