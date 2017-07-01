@@ -3,6 +3,7 @@ import csv
 import os
 from collections import defaultdict
 
+from pyrelaxmapper import translate, utils
 from pyrelaxmapper.constraints.hh import HHConstraint
 from pyrelaxmapper.dirmanager import DirManager
 from pyrelaxmapper.utils import clean
@@ -12,8 +13,11 @@ from pyrelaxmapper.pwn.pwn import PWordNet
 from pyrelaxmapper.wordnet import WordNet
 
 
-# TODO: ENVVAR
 # TODO: Improve validation
+# TODO: Config builder (builtin types autoloaded from config)
+#       seperate this from the main config.
+#       Autoload: Translaters, Constrainers, Classes and pass
+#       to Config class.
 class Config:
     """Application Configuration.
 
@@ -54,10 +58,13 @@ class Config:
         self._dicts = None
         self._init_dicts(dicts)
 
-        self.cleaner = None
+        self.cleaner = utils.clean
         self._ctypes = None
         self.constrainer = None
         self._init_constraints(constrainer)
+
+        self._candidates = None
+        self._manual = None
 
         # Others
         self.pos = parser.get('relaxer', 'pos', fallback='').split(',')
@@ -75,7 +82,7 @@ class Config:
         """Initialize data directories from configuration."""
         dirs = ['data', 'results', 'cache']
         data_dir, results_dir, cache_dir = _parse_dirs(self._parser, 'dirs', dirs)
-        context = self.map_name()
+        context = self.str_wordnets()
         self.data = DirManager(data_dir, context)
         self.results = DirManager(results_dir, context)
         self.cache = DirManager(cache_dir, context)
@@ -128,9 +135,13 @@ class Config:
     ###################################################################
     # Others
 
-    def map_name(self):
+    def str_wordnets(self):
         """Mapping name for folder organization."""
         return '{} -> {}'.format(self._source_wn.name(), self._target_wn.name())
+
+    def str_langs(self):
+        """Mapping name for folder organization."""
+        return '{} -> {}'.format(self._source_wn.lang(), self._target_wn.lang())
 
     def add_constraints(self, cnames, cweights):
         """Parse and add constraints.
@@ -162,6 +173,9 @@ class Config:
         """Is large data loaded."""
         return self._source_wn.loaded() and self._target_wn.loaded()
 
+    ###################################################################
+    # WordNets
+
     def ensure_wn(self, wordnet):
         """Ensure wordnet is loaded, cache is saved and return it."""
         if not wordnet.loaded():
@@ -178,29 +192,73 @@ class Config:
         self._target_wn = self.ensure_wn(self._target_wn)
         return self._target_wn
 
-    def dicts(self):
-        """Mapping algorithm constrainer."""
-        if not self._dicts:
-            self._dicts = self._load_dicts()
-            # self._translater = Translater(dicts, self.cleaner)
-        return self._dicts
+    ###################################################################
+    # Dictionaries
 
-    def _load_dicts(self):
-        dicts = {}
+    def dicts(self):
+        """Dictionaries between source and target languages."""
+        # self._translater = Translater(dicts, self.cleaner)
+        if self._dicts:
+            return self._dicts
+
+        self._dicts = {}
         for path in self._dicts_dir:
             name = os.path.basename(path)
             name = name[:name.rfind('.')].title()
-            dicts.update(self.data.rw_lazy(name, self._load_dict, [path]))
-        return dicts
+            self._dicts.update(self.cache.rw_lazy(name, self._load_dict, [path],
+                                                  group=self.str_langs()))
+        return self._dicts
 
-    # TODO: Lower?
     def _load_dict(self, filename):
+        """Load dictionary between languages."""
         dict_ = defaultdict(set)
         with open(filename, 'r') as file:
             reader = csv.reader(file, delimiter=' ')
             for row in reader:
                 dict_[self.cleaner(row[0])].add(self.cleaner(row[1]))
         return dict_
+
+    ###################################################################
+    # Candidates
+
+    def candidates(self):
+        """Candidates between source and target wordnet."""
+        if self._candidates:
+            return self._candidates
+
+        cache = self.cache
+        if not cache.exists('Candidates', True):
+            translater = self.dicts()
+            source_lemmas = cache.rw_lazy('lemma -> synsets', self.source_wn().lemma_synsets,
+                                          [self.cleaner], group=self.source_wn().name())
+            target_lemmas = cache.rw_lazy('lemma -> synsets', self.target_wn().lemma_synsets,
+                                          [self.cleaner], group=self.target_wn().name())
+            args = [source_lemmas, target_lemmas, translater, self.cleaner]
+            (self._candidates, ((s_lemma_match, s_lemma_count),
+                                (d_lemma_match, d_lemma_count))) \
+                = cache.rw_lazy('Candidates', translate.find_candidates, args, True)
+        else:
+            (self._candidates, ((s_lemma_match, s_lemma_count),
+                                (d_lemma_match, d_lemma_count))) \
+                = cache.r('Candidates', True)
+        # Load lemmas to synsets inside wordnets!! And save these counts
+        self.source_wn()._count_lemmas = s_lemma_count
+        self.target_wn()._count_lemmas = d_lemma_count
+        return self._candidates
+
+    ###################################################################
+    # Manual mappings
+
+    # Consider combining manual and load manual
+    def manual(self):
+        """Manual (done) mappings between source and target wordnet."""
+        if self._manual:
+            return self._manual
+
+        self._manual, d_missing = \
+            self.cache.rw_lazy('Manual', self.source_wn().mappings, [self.target_wn()], True)
+
+        return self._manual
 
 
 def _parse_dirs(parser, section, options):

@@ -6,8 +6,6 @@ import time
 
 from collections import defaultdict
 
-from pyrelaxmapper import translate
-
 logger = logging.getLogger()
 
 
@@ -119,17 +117,18 @@ class Status:
         self.remaining = {}
 
         self.manual = {}
+        self.candidates = {}
         # Manual which are missing in target
         self.d_missing = {}
-        self.candidates = {}
-        self.s_lemma_coverage = 0
-        self.d_lemma_coverage = 0
+        self.s_lemma_match = 0
+        self.d_lemma_match = 0
         self.s_lemma_count = 0
         self.d_lemma_count = 0
+
         self.monosemous = {}
         self.polysemous = {}
 
-        self._load_cache()
+        self.load()
         self.mappings.update(self.monosemous)
         self.remaining.update(self.polysemous)
         self.iterations = [Iteration(self)]
@@ -140,34 +139,10 @@ class Status:
     def target_wn(self):
         return self.config.target_wn()
 
-    # lemma to synsets should be inside the wordnet! Or in config?
-    def find_candidates(self):
-        cache = self.config.cache
-        if not cache.exists('Candidates', True):
-            translater = self.config.dicts()
-            source_lemmas = cache.rw_lazy('lemma -> synsets', self.source_wn().lemma_synsets,
-                                          [self.config.cleaner], group=self.source_wn().name())
-            target_lemmas = cache.rw_lazy('lemma -> synsets', self.target_wn().lemma_synsets,
-                                          [self.config.cleaner], group=self.target_wn().name())
-            args = [source_lemmas, target_lemmas, translater]
-            (self.candidates, ((self.s_lemma_coverage, self.s_lemma_count),
-                               (self.d_lemma_coverage, self.d_lemma_count))) \
-                = cache.rw_lazy('Candidates', translate.find_candidates, args, True)
-        else:
-            (self.candidates, ((self.s_lemma_coverage, self.s_lemma_count),
-                               (self.d_lemma_coverage, self.d_lemma_count))) \
-                = cache.r('Candidates', True)
-        self.source_wn()._count_lemmas = self.s_lemma_count
-        self.target_wn()._count_lemmas = self.d_lemma_count
-        return self.candidates
-
-    def _load_cache(self):
-        """Find candidates or load them from cache."""
-        cache = self.config.cache
-
-        self.candidates = self.find_candidates()
-        self.manual, self.d_missing = \
-            cache.rw_lazy('Manual', self.source_wn().mappings, [self.target_wn()], True)
+    def load(self):
+        """Load Status."""
+        self.candidates = self.config.candidates()
+        self.manual = self.config.manual()
 
         if not self.candidates:
             self.candidates = {k.uid(): [k.uid()] for k in self.source_wn().all_synsets()}

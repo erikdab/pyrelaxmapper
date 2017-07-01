@@ -139,8 +139,8 @@ class Stats:
             'manual_missing': len(d_missing),
             'n_source_syn': source_syns,
             'n_no_translations': len(no_translations),
-            's_lemma_coverage': self.status.s_lemma_coverage,
-            'd_lemma_coverage': self.status.d_lemma_coverage,
+            's_lemma_match': self.status.s_lemma_match,
+            'd_lemma_match': self.status.d_lemma_match,
             # Consider just keeping this value in stats or in config or sth
             'n_lemmas_dicts': len(self.status.config.dicts()),
             'n_monosemous': len(self.status.monosemous),
