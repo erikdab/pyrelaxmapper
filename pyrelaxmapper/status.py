@@ -119,6 +119,7 @@ class Status:
         self.manual = {}
         self.candidates = {}
         # Manual which are missing in target
+        # TODO: This INFO is currently empty!!
         self.d_missing = {}
         self.s_lemma_match = 0
         self.d_lemma_match = 0

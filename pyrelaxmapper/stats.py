@@ -120,10 +120,12 @@ class Stats:
         correct = sum(target_id == self.status.manual.get(source_id, None)
                       for source_id, target_id in self.status.relaxed.items())
         incorrect = len(self.status.relaxed) - correct
+        # Perfect, partial, false
         accuracy = '{:.4f}%'.format(correct * 100 / len(self.status.relaxed)
                                     if self.status.relaxed else 0)
 
         # Dictionary
+        translater = self.status.config.translater()
         stats.update({
             # Distribution graph!
             'n_nodes': len(self.status.candidates),
@@ -139,8 +141,8 @@ class Stats:
             'manual_missing': len(d_missing),
             'n_source_syn': source_syns,
             'n_no_translations': len(no_translations),
-            's_lemma_match': self.status.s_lemma_match,
-            'd_lemma_match': self.status.d_lemma_match,
+            # 's_lemma_match': self.status.s_lemma_match,
+            # 'd_lemma_match': self.status.d_lemma_match,
             # Consider just keeping this value in stats or in config or sth
             'n_lemmas_dicts': len(self.status.config.dicts()),
             'n_monosemous': len(self.status.monosemous),
@@ -150,10 +152,33 @@ class Stats:
             'correct': correct,
             'incorrect': incorrect,
             'accuracy': accuracy,
+            's_trans': translater.s_trans,
+            'd_lemma_match': translater.d_lemma_match,
+            'd_syn_match': translater.d_syn_match,
+            'dict_no_alpha': translater.no_alpha,
+            'dict_space or dash': translater.multi,
+            'dict_dash': translater.has_dash,
+            'dict_digits': translater.has_digits,
         })
 
         stats.update(self.stat_iterations())
         return stats
+
+    def stat_wordnets(self):
+        stats = {}
+        wordnets = {'source': self.status.source_wn()}
+        if self.status.source_wn() != self.status.target_wn():
+            wordnets['target'] = self.status.target_wn()
+        for key, wordnet in wordnets.items():
+            stats.update({
+                key: wordnet.name_full(),
+                key + ' type': wordnet.uid(),
+                key + ' lang': wordnet.lang(),
+                key + ' synsets': wordnet.count_synsets(),
+                key + ' lunits': wordnet.count_lunits(),
+                key + ' uniq lemmas': wordnet.count_lemmas(),
+                # Hiper/hypo relations
+            })
 
     def create_report(self, file):
         writer = csv.writer(file, delimiter='\t')

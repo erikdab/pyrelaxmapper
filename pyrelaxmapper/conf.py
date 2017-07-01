@@ -64,6 +64,7 @@ class Config:
         self._init_constraints(constrainer)
 
         self._candidates = None
+        self._translater = None
         self._manual = None
 
         # Others
@@ -125,12 +126,12 @@ class Config:
         # Save only source and target classes, not the data itself.
         source_cls, target_cls = self._parse_wn_classes()
         return (self._parser, self._wn_classes, source_cls, target_cls, self.data, self.results,
-                self.cache, self.pos, self.constrainer, self.cleaner, self._dicts_dir, None)
+                self.cache, self.pos, self.constrainer, self.cleaner, self._dicts_dir, None, None)
 
     def __setstate__(self, state):
         (self._parser, self._wn_classes, self._source_wn, self._target_wn, self.data, self.results,
          self.cache, self.pos, self.constrainer, self.cleaner, self._dicts_dir,
-         self._dicts) = state
+         self._dicts, self._translater) = state
 
     ###################################################################
     # Others
@@ -216,6 +217,8 @@ class Config:
             reader = csv.reader(file, delimiter=' ')
             for row in reader:
                 dict_[self.cleaner(row[0])].add(self.cleaner(row[1]))
+                # Not cleaned
+                # dict_[row[0]].add(row[1])
         return dict_
 
     ###################################################################
@@ -226,25 +229,28 @@ class Config:
         if self._candidates:
             return self._candidates
 
-        cache = self.cache
-        if not cache.exists('Candidates', True):
-            translater = self.dicts()
-            source_lemmas = cache.rw_lazy('lemma -> synsets', self.source_wn().lemma_synsets,
-                                          [self.cleaner], group=self.source_wn().name())
-            target_lemmas = cache.rw_lazy('lemma -> synsets', self.target_wn().lemma_synsets,
-                                          [self.cleaner], group=self.target_wn().name())
-            args = [source_lemmas, target_lemmas, translater, self.cleaner]
-            (self._candidates, ((s_lemma_match, s_lemma_count),
-                                (d_lemma_match, d_lemma_count))) \
-                = cache.rw_lazy('Candidates', translate.find_candidates, args, True)
-        else:
-            (self._candidates, ((s_lemma_match, s_lemma_count),
-                                (d_lemma_match, d_lemma_count))) \
-                = cache.r('Candidates', True)
-        # Load lemmas to synsets inside wordnets!! And save these counts
-        self.source_wn()._count_lemmas = s_lemma_count
-        self.target_wn()._count_lemmas = d_lemma_count
+        self._candidates = self.translater().candidates
         return self._candidates
+
+    def translater(self):
+        """Candidates between source and target wordnet."""
+        if self._translater:
+            return self._translater
+
+        cachename = 'Translater'
+        if not self.cache.exists(cachename, True):
+            # Merge into wordnet, simplify
+            source_lemmas = self.cache.rw_lazy('lemma -> synsets', self.source_wn().lemma_synsets,
+                                               [self.cleaner], group=self.source_wn().name())
+            target_lemmas = self.cache.rw_lazy('lemma -> synsets', self.target_wn().lemma_synsets,
+                                               [self.cleaner], group=self.target_wn().name())
+            dicts = self.dicts()
+            translater = translate.Translater(self.cleaner, dicts)
+            args = [source_lemmas, target_lemmas]
+            self._translater = self.cache.rw_lazy(cachename, translater.translate, args, True)
+        else:
+            self._translater = self.cache.r(cachename, True)
+        return self._translater
 
     ###################################################################
     # Manual mappings

@@ -67,6 +67,7 @@ def main():
     pass
 
 
+# clean: --clean source, target, wn, lemmas, dicts, manual, cand FROM ENVVAR!!
 @main.command()
 @click.argument('actions', callback=validate_actions, nargs=-1)
 @conf_option()
