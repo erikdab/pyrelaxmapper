@@ -36,7 +36,6 @@ def reltypes_pwn_plwn(session):
             .filter(~ RelationType.shortcut.in_(['po_pa', 'po_ap'])))
 
 
-# Use unified id ('n')
 def pwn_mappings(session, pos=None, pos_en=None):
     """Query plWN for already mapped synsets between plWN and PWN.
 

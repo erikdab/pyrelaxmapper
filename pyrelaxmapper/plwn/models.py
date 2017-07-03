@@ -43,19 +43,6 @@ class LexicalUnit(Base):
     lemma = Column(String(255))
     domain = Column(Integer)
     pos = Column(Integer)
-    # Add later if desired:
-    # 0-manual, 1-automatic?
-    # source = Column(Integer)
-    # 0,1,2,3,4,5
-    # status = Column(Integer)
-    # comment = Column(String(2048))
-    # 1-59: is this the variant of a meaning? polysemous, etc.?
-    # variant = Column(Integer)
-    # -1,0,1,2,3,4: added in which project
-    # If used, add also class Project
-    # project = Column(Integer)
-    # empty now
-    # owner = Column(Integer)
 
 
 class LexicalRelation(Base):
@@ -142,21 +129,11 @@ class RelationType(Base):
     __tablename__ = 'relationtype'
 
     id_ = Column('id', Integer, primary_key=True)
-    # 0,1,2
-    # objecttype = Column(Integer)
     parent_id = Column(Integer, ForeignKey('relationtype.id'))
     reverse_id = Column(Integer, ForeignKey('relationtype.id'))
     name = Column(String(255))
-    # description = Column(String(500))
-    posstr = Column(String(255))
     autoreverse = Column(Integer)
-    # How to display relationship information.
-    # display = Column(String(255))
     shortcut = Column(String(255))
-    # PWN relation symbol
-    # pwn = Column(String(10))
-    # What is this?
-    # order = Column(Integer)
 
 
 class UnitSynset(Base):

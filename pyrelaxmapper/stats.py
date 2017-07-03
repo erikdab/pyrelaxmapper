@@ -18,14 +18,6 @@ class Stats:
     def __init__(self, status):
         self.status = status
 
-    def stat_performance(self):
-        # cache vs. live
-        stats = {
-            'cache': 0,
-            'live': 0
-        }
-        return stats
-
     def stat_iteration(self, iteration=None, full=False):
         if not iteration:
             iteration = self.status.iteration()
@@ -74,12 +66,6 @@ class Stats:
         # Mapping
         cand = list(self.status.candidates.items())
         counts = np.array([len(node[1]) for node in cand])
-        # counts_max = counts.argsort()[-5:][::-1]
-        # most_ambiguous = '\t'.join([
-        #     ','.join([str(cand[idx][0]), str(len(cand[idx][1])),
-        #                str(next(
-        #                    self.status.config.source_wn().synset(cand[idx][0]).lemma_names()))])
-        #     for idx in counts_max])
         source_syns = self.status.source_wn().count_synsets()
         no_translations = [synset.uid() for synset in self.status.source_wn().all_synsets()
                            if synset.uid() not in self.status.candidates]
@@ -120,23 +106,14 @@ class Stats:
         translater = self.status.config.translater()
 
         stats.update({
-            # Distribution graph!
             'n_nodes': len(self.status.candidates),
             'n_labels': sum(counts),
             'labels_max': max_,
-            # 'labels_min': min_,
             'labels_avg': avg,
-            # 'most_ambiguous': most_ambiguous,
-            # 'n_connections_per_type': 0,
-            # 'n_stable': 0,
-            # 'n_completed': 0,
             'manual': len(manual),
             'manual_missing': len(d_missing),
             'n_source_syn': source_syns,
             'n_no_translations': len(no_translations),
-            # 's_lemma_match': self.status.s_lemma_match,
-            # 'd_lemma_match': self.status.d_lemma_match,
-            # Consider just keeping this value in stats or in config or sth
             'n_lemmas_dicts': len(self.status.config.dicts()),
             'n_monosemous': len(self.status.monosemous),
             'n_polysemous': len(self.status.polysemous),

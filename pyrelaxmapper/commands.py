@@ -15,7 +15,7 @@ from pyrelaxmapper.wordnet import WordNet
 
 logger = logging.getLogger()
 
-# Click Colors
+# Click Cli Colors
 CSuccess = 'green'
 CInfo = 'blue'
 CError = 'red'

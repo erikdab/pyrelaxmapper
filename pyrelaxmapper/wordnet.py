@@ -156,7 +156,6 @@ class WordNet:
         cleaner : func
             Function used to clean the lemmas.
         """
-        # TODO: Preserve the counts some how!
         lemmas = defaultdict(list)
         self._count_lunits = 0
         for synset in self.all_synsets():

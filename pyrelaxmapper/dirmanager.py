@@ -10,8 +10,6 @@ from pyrelaxmapper.fileutils import ensure_dir, ensure_ext, ensure_path
 logger = logging.getLogger()
 
 
-# TODO: Better extension handling
-# TODO: Default name is type name
 class DirManager:
     """Directory Manager, simplifying many common tasks.
 

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import csv
 import os
+import sys
 from collections import defaultdict
 
 from pyrelaxmapper import translate, utils
@@ -13,11 +14,6 @@ from pyrelaxmapper.pwn.pwn import PWordNet
 from pyrelaxmapper.wordnet import WordNet
 
 
-# TODO: Improve validation
-# TODO: Config builder (builtin types autoloaded from config)
-#       seperate this from the main config.
-#       Autoload: Translaters, Constrainers, Classes and pass
-#       to Config class.
 class Config:
     """Application Configuration.
 
@@ -201,12 +197,14 @@ class Config:
     def _load_dict(self, filename):
         """Load dictionary between languages."""
         dict_ = defaultdict(set)
-        with open(filename, 'r') as file:
-            reader = csv.reader(file, delimiter=' ')
-            for row in reader:
-                dict_[self.cleaner(row[0])].add(self.cleaner(row[1]))
-                # Not cleaned
-                # dict_[row[0]].add(row[1])
+        try:
+            with open(filename, 'r') as file:
+                reader = csv.reader(file, delimiter=' ')
+                for row in reader:
+                    dict_[self.cleaner(row[0])].add(self.cleaner(row[1]))
+        except FileNotFoundError as e:
+            print('Dicts file not found. EXITING.')
+            sys.exit(1)
         return dict_
 
     ###################################################################

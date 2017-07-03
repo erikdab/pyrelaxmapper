@@ -4,9 +4,6 @@ import logging
 logger = logging.getLogger()
 
 
-# Is there a way to constrain first some things and use
-# some WSD to decrease the nr of candidates?
-# That would speed up tremendously.
 class Constrainer:
     """Relaxation labeling constrainer.
 

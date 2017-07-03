@@ -92,44 +92,6 @@ def multi_replace(text, replacements, ignore_case=False):
 
 
 #######################################################################
-# Functions
-
-def normalized(a, order=2):
-    """Normalize numpy vector to 1
-
-    Parameters
-    ----------
-    a : np.ndarray
-    order : int
-
-    Returns
-    -------
-    np.ndarray
-    """
-    l2 = np.linalg.norm(a, order)
-    l2 = l2 if l2 != 0 else 1
-    return a / l2
-
-
-def normalized2d(a, axis=-1, order=2):
-    """Normalize numpy vector to 1
-
-    Parameters
-    ----------
-    a : np.ndarray
-    axis : int
-    order : int
-
-    Returns
-    -------
-    np.ndarray
-    """
-    l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
-    l2[l2 == 0] = 1
-    return a / np.expand_dims(l2, axis)
-
-
-#######################################################################
 # Database utilities.
 
 

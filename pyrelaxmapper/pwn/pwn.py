@@ -34,7 +34,6 @@ class PWordNet(wordnet.WordNet):
         self._loaded = False
         super().__init__(parser, section, preload)
 
-    # NLTK data dir?
     class Config:
         """PWN WordNet configuration.
 
@@ -75,7 +74,6 @@ class PWordNet(wordnet.WordNet):
     def synset(self, uid):
         if isinstance(uid, str):
             return self._synsets_name.get(uid)
-            # return next((syn for syn in self._synsets.values() if syn._name == uid), None)
         else:
             return self._synsets.get(uid)
 
@@ -104,9 +102,6 @@ class PWordNet(wordnet.WordNet):
             logger.info('{} Calculating hyper/hypo layers.'.format(text))
             self._hypernym_layers_uid, self._hyponym_layers_uid = self.find_hh_layers()
 
-            # for synset in self._synsets.values():
-            #     synset.update_rels()
-
         if not self._pos:
             self._pos = {'n': wn.NOUN, 'v': wn.VERB, 'r': wn.ADV, 'a': wn.ADJ}
 
@@ -128,8 +123,6 @@ class PSynset(wordnet.Synset):
         self._pwordnet = pwordnet
         self._uid = nltk_synset.offset()
         self._name = nltk_synset.name()
-        # self._pos = nltk_synset.pos()
-        # nltk.lexname() 'noun.animal'!!
         self._lemmas = []
         for lemma in nltk_synset.lemmas():
             self._lemmas.append(PLexicalUnit(lemma, self, lemma.name()))
@@ -142,29 +135,12 @@ class PSynset(wordnet.Synset):
         self._hypernym_layers = []
         self._hyponym_layers = None
         self._hypernym_layers = None
-        # self._antonyms = [antonym for lemma in self._lemmas
-        #                   for antonym in lemma.antonyms()]
-        # Content style only required on target side?
-        # gloss: nltk_synset.definition()
-        # examples: nltk_synset.examples()
 
     def uid(self):
         return self._uid
 
     def name(self):
         return self._name
-
-        # def update_rels(self):
-        #     """Update relation links (reference)."""
-        # text = repr(self._pwordnet)
-        # logger.info('{} Loading hyponym layers.'.format(text))
-        # self._hyponym_layers = self.find_hyponym_layers()
-        # # logger.info('{} Loading hypernym_layers.'.format(text))
-        # self._hypernym_layers = self.find_hypernym_layers()
-        # # logger.info('{} Calculating hyponym_layers_uid.'.format(text))
-        # self._hyponym_layers_uid = self.get_uids(self._hyponym_layers)
-        # # logger.info('{} Calculating hypernym_layers_uid.'.format(text))
-        # self._hypernym_layers_uid = self.get_uids(self._hypernym_layers)
 
     def lemmas(self):
         return self._lemmas
