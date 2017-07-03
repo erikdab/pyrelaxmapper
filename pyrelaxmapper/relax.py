@@ -27,19 +27,18 @@ class Relaxer:
 
     def relax(self):
         """Run relaxation labeling with all constraints in config."""
-        key = 'iteration'
         writer = csv.writer(sys.stdout, delimiter='\t')
 
         status = self.status
         iteration = status.iteration()
-        while iteration.index <= 1 or self.status.iterations[-2].changed():
+        while iteration.index <= 1 or self.status.iterations[-2].any_changes():
             click.secho('Iteration: {}'.format(iteration.index), fg='blue')
 
-            iteration.add_count(key, len(self.status.remaining))
+            iteration.add_count(len(self.status.remaining))
 
-            iteration.start(key)
+            iteration.time_start()
             self._relax_loop()
-            iteration.stop(key)
+            iteration.time_stop()
 
             writer.writerows(self.stats.stat_iteration(iteration, True).items())
 

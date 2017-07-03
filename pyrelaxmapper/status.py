@@ -4,12 +4,9 @@ import logging
 import numpy as np
 import time
 
-from collections import defaultdict
-
 logger = logging.getLogger()
 
 
-# TODO: CLEAN UP!
 class Node:
     """RL variable, a source taxonomy synset, with target labels.
 
@@ -81,25 +78,31 @@ class Iteration:
         self.mappings = {}
         self.remaining = {}
         self.index = index + 1
-        self.time_sum = defaultdict(float)
-        self.time = defaultdict(float)
-        self.count = defaultdict(int)
 
-    def changed(self):
+        self.time_sum = 0.0
+        self.time = 0.0
+        self.counter = 0
+
+    def any_changes(self):
+        """Were there any changes in the iteration."""
         return len(self.mappings) > 0 or len(self.remaining) > 0
 
-    def start(self, key):
-        self.time[key] = time.clock()
+    def time_start(self):
+        """Start timer."""
+        self.time = time.clock()
 
-    def stop(self, key):
-        self.time[key] = time.clock() - self.time[key]
-        self.time_sum[key] += self.time[key]
+    def time_stop(self):
+        """Stop timer and add time to self.time."""
+        self.time = time.clock() - self.time
+        self.time_sum += self.time
 
-    def add_count(self, key, count):
-        self.count[key] += count
+    def add_count(self, count):
+        """Increment progress counter."""
+        self.counter += count
 
-    def avg(self, key):
-        return self.time_sum[key] / self.count[key] if self.count[key] else 0
+    def time_avg(self):
+        """Average time"""
+        return self.time_sum / self.counter if self.counter else 0
 
 
 class Status:
@@ -118,14 +121,6 @@ class Status:
 
         self.manual = {}
         self.candidates = {}
-        # Manual which are missing in target
-        # TODO: This INFO is currently empty!!
-        self.d_missing = {}
-        self.s_lemma_match = 0
-        self.d_lemma_match = 0
-        self.s_lemma_count = 0
-        self.d_lemma_count = 0
-
         self.monosemous = {}
         self.polysemous = {}
 
@@ -135,20 +130,21 @@ class Status:
         self.iterations = [Iteration(self)]
 
     def source_wn(self):
+        """Mapping source wordnet."""
         return self.config.source_wn()
 
     def target_wn(self):
+        """Mapping target wordnet."""
         return self.config.target_wn()
 
     def load(self):
-        """Load Status."""
+        """Load required information."""
         self.candidates = self.config.candidates()
         self.manual = self.config.manual()
 
         if not self.candidates:
             self.candidates = {k.uid(): [k.uid()] for k in self.source_wn().all_synsets()}
 
-        # Not convinced set wouldn't be better!
         self.monosemous = {source_id: list(target_ids)[0] for source_id, target_ids in
                            self.candidates.items() if len(target_ids) == 1}
         self.polysemous = {source_id: Node(source_id, list(target_ids))
@@ -163,12 +159,10 @@ class Status:
         Iteration
             The new iteration.
         """
-        # All mappings
         self.mappings.update(self.iteration().mappings)
-        # Relaxed mappings
         self.relaxed.update(self.iteration().mappings)
-        # Learnt something, eliminated some labels.
         self.remaining.update(self.iteration().remaining)
+
         # Remove mapped objects from remaining.
         for key in self.iteration().mappings.keys():
             del self.remaining[key]

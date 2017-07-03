@@ -66,6 +66,7 @@ class Config:
         self._candidates = None
         self._translater = None
         self._manual = None
+        self._manual_missing = None
 
         # Others
         self.pos = parser.get('relaxer', 'pos', fallback='').split(',')
@@ -126,12 +127,15 @@ class Config:
         # Save only source and target classes, not the data itself.
         source_cls, target_cls = self._parse_wn_classes()
         return (self._parser, self._wn_classes, source_cls, target_cls, self.data, self.results,
-                self.cache, self.pos, self.constrainer, self.cleaner, self._dicts_dir, None, None)
+                self.cache, self.pos, self.constrainer, self.cleaner, self._dicts_dir)
 
     def __setstate__(self, state):
         (self._parser, self._wn_classes, self._source_wn, self._target_wn, self.data, self.results,
-         self.cache, self.pos, self.constrainer, self.cleaner, self._dicts_dir,
-         self._dicts, self._translater) = state
+         self.cache, self.pos, self.constrainer, self.cleaner, self._dicts_dir) = state
+        self._manual = None
+        self._manual_missing = None
+        self._translater = None
+        self._dicts = None
 
     ###################################################################
     # Others
@@ -261,10 +265,23 @@ class Config:
         if self._manual:
             return self._manual
 
-        self._manual, d_missing = \
+        self._manual, self._manual_missing = \
             self.cache.rw_lazy('Manual', self.source_wn().mappings, [self.target_wn()], True)
 
         return self._manual
+
+    def manual_missing(self):
+        """Manual (done) mappings not found in target wordnet.
+
+        Possible reasons:
+          - difference in wordnets versions
+          - manual mapping introduced new synsets absent in target wn.
+        """
+        if self._manual:
+            return self._manual
+
+        self.manual()
+        return self._manual_missing
 
 
 def _parse_dirs(parser, section, options):

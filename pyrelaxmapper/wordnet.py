@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-"""WordNet interface."""
 from collections import defaultdict
 from enum import Enum
 import logging
@@ -19,8 +18,8 @@ class POS(Enum):
 class WordNet:
     """WordNet Interface.
 
-    Aims to provide a unified interface for accessing WordNet
-    information to simplify writing code for multiple WordNets.
+    A unified interface for accessing WordNet resources
+    to simplify writing code for arbitrary WordNets.
 
     Parameters
     ----------
@@ -76,7 +75,7 @@ class WordNet:
         return hash((self.uid(), self.lang(), self.version()))
 
     def lang(self):
-        """WordNet core language.
+        """WordNet language.
 
         Returns
         -------
@@ -150,11 +149,12 @@ class WordNet:
         pass
 
     def lemma_synsets(self, cleaner):
-        """List of mappings from lemma to synset which contain it.
+        """Dict of synsets which contain key lemmas.
 
         Parameters
         ----------
         cleaner : func
+            Function used to clean the lemmas.
         """
         # TODO: Preserve the counts some how!
         lemmas = defaultdict(list)
@@ -180,7 +180,7 @@ class WordNet:
         Returns
         -------
         tuple of (dict, list)
-            Results: (mapped, dest_missing)
+            Results: (mapped, dest_missing) or (None, None) is missing.
         """
         if other_wn == self:
             return {synset.uid(): synset.uid() for synset in self.all_synsets()}, {}

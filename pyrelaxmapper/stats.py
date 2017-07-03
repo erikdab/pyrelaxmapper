@@ -29,38 +29,27 @@ class Stats:
     def stat_iteration(self, iteration=None, full=False):
         if not iteration:
             iteration = self.status.iteration()
-        key = 'iteration'
         stats = {
-            'relaxed': int(iteration.count[key]),
+            'relaxed': int(iteration.counter),
             'selected': len(iteration.mappings),
-            # 'changes': len(iteration.remaining),
-            'time': '{:.5f}'.format(float(iteration.time_sum[key])),
-            'avg': '{:.5f}'.format(iteration.avg(key)),
+            'time': '{:.5f}'.format(float(iteration.time_sum)),
+            'avg': '{:.5f}'.format(iteration.time_avg()),
         }
         if len(iteration.remaining):
             stats['changes'] = len(iteration.remaining)
-        if full:
-            for key in iteration.time.keys():
-                if key == 'iteration':
-                    continue
-                stats.update({
-                    key + ' time': '{:.5f}'.format(float(iteration.time_sum[key])),
-                    key + ' count': iteration.count[key],
-                    key + ' time_avg': '{:.5f}'.format(iteration.avg(key)),
-                })
         return stats
 
     def stat_iterations(self):
         stats = {}
         for iteration in self.status.iterations:
             stats[iteration.index] = self.stat_iteration(iteration)
-        time = sum(it.time_sum['iteration'] for it in self.status.iterations)
+        time = sum(it.time_sum for it in self.status.iterations)
         stats['sum'] = '{:.2f} sec.'.format(time)
         return stats
 
     def stat_total(self):
         stats = {}
-        stats['sum'] = sum(it.time_sum['iteration'] for it in self.status.iterations)
+        stats['sum'] = sum(it.time_sum for it in self.status.iterations)
         return stats
 
     # Also include config information!
@@ -113,12 +102,15 @@ class Stats:
         avg = '{:.5f}'.format(avg / len(candidates))
 
         # Coverage
-        manual, d_missing = self.status.manual, self.status.d_missing
+        manual, d_missing = self.status.manual, self.status.config.manual_missing()
 
         # Accuracy, monosemous, polisemous
         # Use distance later!
-        correct = sum(target_id == self.status.manual.get(source_id, None)
+        correct = sum(target_id in self.status.manual.get(source_id, set())
                       for source_id, target_id in self.status.relaxed.items())
+        correct_2 = sum(target_id == manual_target_id
+                        for source_id, target_id in self.status.relaxed.items()
+                        for manual_target_id in self.status.manual.get(source_id, set()))
         incorrect = len(self.status.relaxed) - correct
         # Perfect, partial, false
         accuracy = '{:.4f}%'.format(correct * 100 / len(self.status.relaxed)
@@ -126,6 +118,7 @@ class Stats:
 
         # Dictionary
         translater = self.status.config.translater()
+
         stats.update({
             # Distribution graph!
             'n_nodes': len(self.status.candidates),
@@ -150,6 +143,7 @@ class Stats:
             'relaxed': len(self.status.relaxed),
             'n_no_connections': len(no_candidates),
             'correct': correct,
+            'correct2': correct_2,
             'incorrect': incorrect,
             'accuracy': accuracy,
             's_trans': translater.s_trans,
@@ -160,7 +154,6 @@ class Stats:
             'dict_dash': translater.has_dash,
             'dict_digits': translater.has_digits,
         })
-
         stats.update(self.stat_iterations())
         return stats
 

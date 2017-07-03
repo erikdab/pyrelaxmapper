@@ -138,6 +138,7 @@ class PLWordNet(wordnet.WordNet):
     def antonyms(self, id_):
         return self._antonyms.get(int(id_), [])
 
+    # Some are missing because PWN only stores nouns now.
     def mappings(self, other_wn, recurse=True):
         """Existing mappings with another wordnet.
 
@@ -165,9 +166,9 @@ class PLWordNet(wordnet.WordNet):
         target_name = other_wn.name()
         if target_name in ['PWN', 'WordNet']:
             session = self._config.make_session()
-            manual = {}
-            d_missing = []
-            dest = defaultdict(int)
+            manual = defaultdict(set)
+            missing = []
+            dest = set()
             for row in queries.pwn_mappings(session).all():
                 *txt, num = row.unitsstr[1:row.unitsstr.find('*')].lower().split(' ')
                 txt = '_'.join(txt)
@@ -175,16 +176,17 @@ class PLWordNet(wordnet.WordNet):
                 p_uid = '{}.{}.{:0>2}'.format(txt, pos, num)
                 d_syn = other_wn.synset(p_uid)
                 if d_syn:
-                    dest[d_syn.uid()] += 1
-                    manual[row.pl_uid] = d_syn.uid()
+                    dest.add(d_syn.uid())
+                    manual[row.pl_uid].add(d_syn.uid())
                 else:
-                    d_missing.append(p_uid)
-            max_ = max(dest.values())
-            avg_ = sum(dest.values()) * 100 / len(dest)
-            count_ = len(dest)
-            logger.info('max{}, avg{}, count{}'.format(max_, avg_, count_))
-            # max737, avg334.05302515295716, count36775
-            return manual, d_missing
+                    missing.append(p_uid)
+            lengths = [len(targets) for targets in manual.values()]
+            max_ = max(lengths)
+            avg_ = sum(lengths) / len(lengths)
+            count_ = len(manual)
+            logger.info('max: {}, avg: {}, count: {}'.format(max_, avg_, count_))
+            # max: 21, avg: 1.0757550548613362, count: 114197
+            return manual, missing
 
         return super().mappings(other_wn, False)
 

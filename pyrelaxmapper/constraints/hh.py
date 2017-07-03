@@ -12,7 +12,6 @@ from pyrelaxmapper.constraints import Constraint
 logger = logging.getLogger()
 
 
-# TODO: Use only HHType to speed up hashing!
 class HHConstraint(Constraint):
     """Constraints which utilize hyper/hyponym connections."""
 
@@ -25,14 +24,6 @@ class HHConstraint(Constraint):
         self.hhtypes = [hhtype for code in cnames for hhtype in HHType.factory(code)]
         self.o_any_recurse, self.d_any_recurse = _any_recurse(self.hhtypes)
 
-    # Relation_uids takes some time.
-    # Searching for mappings in the mapped dict is the slowest.
-    # connections iterate over iterations (could be maybe improved)
-    # HEY! USE lru_cache() for hashing?
-    # Hashing used to take longer, now I "cached" the hash
-    # Calculating weights isn't super fast either.
-    # Convert 10 constraints to HHType!? Maybe, COULD BE DONE! maybe drop the other enums?
-    # Pass Status HERE!?
     def apply(self, status, node):
         mapped = status.mappings
         orig = status.source_wn()
@@ -235,8 +226,6 @@ def _connections(mapped, orig_rel, dest_rel):
         for d_dist, d_layer in enumerate(dest_rel):
             count = count_conn(o_mapped, d_layer)
 
-            # _connection_stats(o_layer, d_layer, count)
-
             if not count:
                 continue
 
@@ -314,9 +303,6 @@ def _weight(node, code, conn, rel_weights, avg_weight, avg_candidates):
         hyper_dist_sum = e['dist_sum'][0]
         dist_count = ((hyper_dist_sum + hypo_dist_sum, count) for
                       hypo_dist_sum, count in o_.items())
-        # hyper_dist_sum = conn[HHDirection.hyper]['dist_sum']
-        # dist_count = ((hyper_dist_sum + hypo_dist_sum, count) for
-        #               hypo_dist_sum, count in conn[HHDirection.hypo][code].items())
     else:
         return 0.0
     return _weight_formula(weight, dist_count)

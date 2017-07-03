@@ -61,7 +61,8 @@ def pwn_mappings(session, pos=None, pos_en=None):
     syns_en = orm.aliased(Synset)
     uas_pl = orm.aliased(UnitSynset)
     lunit_pl = orm.aliased(LexicalUnit)
-    return (session.query(label('pl_uid', Synset.id_), syns_en.unitsstr, LexicalUnit.pos)
+    return (session.query(label('pl_uid', Synset.id_), label('en_uid', syns_en.id_),
+                          syns_en.unitsstr, LexicalUnit.pos)
             .join(SynsetRelation, Synset.id_ == SynsetRelation.parent_id)
             .join(syns_en, SynsetRelation.child_id == syns_en.id_)
 
@@ -76,7 +77,7 @@ def pwn_mappings(session, pos=None, pos_en=None):
             .filter(LexicalUnit.pos.in_(pos_en))
             .filter(lunit_pl.pos.in_(pos))
 
-            .group_by(Synset.id_, syns_en.unitsstr, LexicalUnit.pos)
+            .group_by(Synset.id_, syns_en.id_, syns_en.unitsstr, LexicalUnit.pos)
             .order_by(Synset.id_)
             )
 
