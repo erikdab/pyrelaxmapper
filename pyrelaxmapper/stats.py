@@ -90,13 +90,10 @@ class Stats:
         # Coverage
         manual, d_missing = self.status.manual, self.status.config.manual_missing()
 
-        # Accuracy, monosemous, polisemous
+        # Accuracy, monosemous, polysemous
         # Use distance later!
-        correct = sum(target_id in self.status.manual.get(source_id, set())
+        correct = sum(target_id == self.status.manual.get(source_id, set())
                       for source_id, target_id in self.status.relaxed.items())
-        correct_2 = sum(target_id == manual_target_id
-                        for source_id, target_id in self.status.relaxed.items()
-                        for manual_target_id in self.status.manual.get(source_id, set()))
         incorrect = len(self.status.relaxed) - correct
         # Perfect, partial, false
         accuracy = '{:.4f}%'.format(correct * 100 / len(self.status.relaxed)
@@ -120,7 +117,6 @@ class Stats:
             'relaxed': len(self.status.relaxed),
             'n_no_connections': len(no_candidates),
             'correct': correct,
-            'correct2': correct_2,
             'incorrect': incorrect,
             'accuracy': accuracy,
             's_trans': translater.s_trans,

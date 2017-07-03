@@ -34,7 +34,8 @@ class Translater:
                     candidates_mono[source_synset].extend(d_lemma_synsets.get(trans)
                                                           for trans in translations)
 
-            return candidates_mono
+            self.candidates = candidates_mono
+            return self
 
         log_title = type(self).__name__
 

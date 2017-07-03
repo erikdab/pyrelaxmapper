@@ -61,8 +61,8 @@ class Config:
 
         self._candidates = None
         self._translater = None
-        self._manual = None
-        self._manual_missing = None
+        self._manual = {}
+        self._manual_missing = {}
 
         # Others
         self.pos = parser.get('relaxer', 'pos', fallback='').split(',')
