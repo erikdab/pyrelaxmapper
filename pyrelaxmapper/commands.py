@@ -98,6 +98,19 @@ def config_clean(config):
     config.cache.remove_all()
 
 
+def diff_char(left, right):
+    """Return a character representing the diff between the values."""
+    diff = ' '
+    if left and not right:
+        diff = '+'
+    elif not left and right:
+        diff = '-'
+    elif left != right:
+        diff = '~'
+    diff += ' '
+    return diff
+
+
 def config_list(conf_file):
     """List application configuration."""
     click.secho('Configuration summary:', color=CInfo)
@@ -119,30 +132,27 @@ def config_list(conf_file):
 
     click.secho('\nConfiguration listing (diff to defaults):', fg=CInfo)
     default = fileutils.conf_merge([fileutils.dir_pkg_conf()])
-    merged = fileutils.conf_merge()
+    live = fileutils.conf_merge()
     if conf_file:
-        merged.read_file(conf_file)
-    sections = list(default.keys())
+        live.read_file(conf_file)
+    sections = list(live.keys())
+    sections.extend(default.keys())
     for section in sections:
-        click.echo(section)
-        keys = list(default[section].keys())
-        keys.extend(key for key in merged[section].keys() if key not in keys)
+        diff_section = diff_char(live.has_section(section), default.has_section(section))
+        click.echo('{}{}'.format(diff_section, section))
+        keys = []
+        if live.has_section(section):
+            keys.extend(live[section].keys())
+        if default.has_section(section):
+            keys.extend(key for key in default[section].keys() if key not in keys)
         for key in keys:
-            v_merged = merged.get(section, key, fallback='')
+            value = v_live = live.get(section, key, fallback='')
             v_default = default.get(section, key, fallback='')
-            value = v_merged
-            diff = ' '
-            if v_merged and not v_default:
-                diff = '+'
-            elif not v_merged and v_default:
-                diff = '-'
-                value = v_default
-            elif v_merged != v_default:
-                diff = '~'
-            diff += ' '
+            diff_value = diff_char(v_live, v_default)
+
             value = os.path.expanduser(value)
             exists = ' <-(exists)' if os.path.exists(value) else ''
-            click.echo(''.join(['\t', diff, key, ' = ', value, exists]))
+            click.echo('\t{}{} = {}{}'.format(diff_value, key, value, exists))
 
 
 def config_reset(conf_file):
@@ -244,4 +254,3 @@ def usage_example():
     stats = Stats(relaxer.status)
     with open(config.results.path('results.csv', True), 'w') as file:
         stats.create_report(file)
-

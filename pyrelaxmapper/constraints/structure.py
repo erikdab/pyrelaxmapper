@@ -36,4 +36,3 @@ class DaughtersConstraint(Constraint):
 
             if weight:
                 node.add_weight(idx, weight)
-

@@ -95,8 +95,6 @@ class Config:
 
     def _init_constraints(self):
         """Initialize constraints from args or configuration."""
-        section = 'relaxer'
-
         self.constrainer = Constrainer()
         constraints = parse_constraints(self._parser, 'relaxer', self._ctypes)
         self.add_constraints(constraints)

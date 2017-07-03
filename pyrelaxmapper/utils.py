@@ -5,7 +5,6 @@ import os
 import re
 from configparser import ConfigParser
 
-import numpy as np
 import sqlalchemy
 import sqlalchemy.engine.url
 import sqlalchemy.orm
