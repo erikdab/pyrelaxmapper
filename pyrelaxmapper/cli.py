@@ -149,5 +149,11 @@ def logger_edit():
     click.edit(filename=commands.logger_file())
 
 
+@main.command('usage')
+def usage_example():
+    """Test the usage example."""
+    commands.usage_example()
+
+
 if __name__ == "__main__":
     main()

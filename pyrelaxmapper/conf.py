@@ -25,12 +25,10 @@ class Config:
     ----------
     parser : configparser.ConfigParser
         Parser with configuration.
-    wn_classes : list of pyrelaxmapper.wordnet.WordNet
+    wn_classes
         WordNets to add to be loadable from configuration parser.
-    constrainer : pyrelaxmapper.constrainer.Constrainer, optional
+    constrainer
         Constrainer contains constraints for relaxation labeling.
-    dicts : pyrelaxmapper.dicts.Translater, optional
-        Translater between esp. multi-lingual wordnets.
     """
     WORDNETS = [PLWordNet, PWordNet]
     CONSTRAINTS = [HHConstraint]
@@ -38,7 +36,7 @@ class Config:
     ###################################################################
     # Initialization
 
-    def __init__(self, parser, wn_classes=None, constrainer=None, dicts=None):
+    def __init__(self, parser, wn_classes=None, constraint_types=None):
         if not parser:
             raise ValueError('Configuration requires a ConfigParser to load.')
 
@@ -56,12 +54,14 @@ class Config:
 
         self._dicts_dir = None
         self._dicts = None
-        self._init_dicts(dicts)
+        self._init_dicts()
 
         self.cleaner = utils.clean
-        self._ctypes = None
+        self._ctypes = self.CONSTRAINTS[:]
+        if constraint_types:
+            self._ctypes.extend(constraint_types)
         self.constrainer = None
-        self._init_constraints(constrainer)
+        self._init_constraints()
 
         self._candidates = None
         self._translater = None
@@ -83,36 +83,27 @@ class Config:
     def _init_datadirs(self):
         """Initialize data directories from configuration."""
         dirs = ['data', 'results', 'cache']
-        data_dir, results_dir, cache_dir = _parse_dirs(self._parser, 'dirs', dirs)
+        data_dir, results_dir, cache_dir = parse_dirs(self._parser, 'dirs', dirs)
         context = self.str_wordnets()
         self.data = DirManager(data_dir, context)
         self.results = DirManager(results_dir, context)
         self.cache = DirManager(cache_dir, context)
 
-    def _init_dicts(self, dicts):
+    def _init_dicts(self):
         """Initialize Dictionaries from args or configuration."""
         self._dicts_dir = self._parser['dirs'].get('dicts', [])
         if self._dicts_dir:
             self._dicts_dir = [os.path.expanduser(dict_)
                                for dict_ in self._parser['dirs'].get('dicts', []).split(',')]
         self.cleaner = clean
-        self._dicts = dicts
 
-    def _init_constraints(self, constrainer):
+    def _init_constraints(self):
         """Initialize constraints from args or configuration."""
         section = 'relaxer'
-        self._ctypes = self.CONSTRAINTS[:]
-        cnames = self._parser.get(section, 'cnames', fallback='').split(',')
-        if not cnames:
-            raise KeyError('Relaxation labeling requires at least one constraint!')
 
-        cweights = defaultdict(lambda: defaultdict(float))
-        for key, value in self._parser.items('weights'):
-            ctype, ckey = key.split('_')
-            cweights[ctype][ckey] = float(value)
-
-        self.constrainer = constrainer if constrainer else Constrainer()
-        self.add_constraints(cnames, cweights)
+        self.constrainer = Constrainer()
+        constraints = parse_constraints(self._parser, 'relaxer', self._ctypes)
+        self.add_constraints(constraints)
 
     def _parse_wn_classes(self):
         """Get WordNet classes for source and target."""
@@ -148,7 +139,7 @@ class Config:
         """Mapping name for folder organization."""
         return '{} -> {}'.format(self._source_wn.lang(), self._target_wn.lang())
 
-    def add_constraints(self, cnames, cweights):
+    def add_constraints(self, constraints):
         """Parse and add constraints.
 
         Returns
@@ -156,14 +147,7 @@ class Config:
         cnames : list of str
         cweights : dict
         """
-        if not cnames:
-            return
-        for ctype in self._ctypes:
-            cnames_ = ctype.cnames_all()
-            match = cnames_.intersection(cnames)
-            if match:
-                cweights_ = cweights.get(ctype.uid(), {})
-                self.constrainer.constraints.append(ctype(match, cweights_))
+        self.constrainer.constraints.extend(constraints)
 
     ###################################################################
     # Large data
@@ -284,7 +268,7 @@ class Config:
         return self._manual_missing
 
 
-def _parse_dirs(parser, section, options):
+def parse_dirs(parser, section, options):
     """Parse directory configuration option.
 
     Returns
@@ -298,6 +282,33 @@ def _parse_dirs(parser, section, options):
         except KeyError as e:
             raise KeyError('[{}][{}] Required.')
     return dirs
+
+
+def parse_constraints(parser, section, ctypes):
+    """Parse and add constraints.
+
+    Returns
+    -------
+    cnames : list of str
+    cweights : dict
+    """
+    cnames = parser.get(section, 'cnames', fallback='').split(',')
+    if not cnames:
+        return []
+
+    cweights = defaultdict(lambda: defaultdict(float))
+    for key, value in parser.items('weights'):
+        ctype, ckey = key.split('_')
+        cweights[ctype][ckey] = float(value)
+
+    constraints = []
+    for ctype in ctypes:
+        cnames_ = ctype.cnames_all()
+        match = cnames_.intersection(cnames)
+        if match:
+            cweights_ = cweights.get(ctype.uid(), {})
+            constraints.append(ctype(match, cweights_))
+    return constraints
 
 
 def _add_wn_classes(wn_classes, wordnets):

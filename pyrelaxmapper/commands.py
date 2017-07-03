@@ -8,8 +8,10 @@ import logging
 import click
 import sys
 
+from pyrelaxmapper.constraints.hh import HHConstraint
 from pyrelaxmapper import conf, fileutils, utils, relax
 from pyrelaxmapper.stats import Stats
+from pyrelaxmapper.wordnet import WordNet
 
 logger = logging.getLogger()
 
@@ -219,3 +221,27 @@ def parse_actions(actions):
     set of Action
     """
     return set(utils.enum_factory(Action, set(actions)))
+
+
+def usage_example():
+    """A short usage example for all algorithm tasks."""
+    class TestWordNet(WordNet):
+        """Test wordnet implementation."""
+        pass
+    # Load the config parser from a file, stdin, or any other location.
+    parser = fileutils.conf_merge()
+    # Define non-builtin wordnet implementations if using them.
+    wn_cls = [TestWordNet]
+    # Define non-builtin constraints if using them.
+    constraint_cls = [HHConstraint]
+    # Initialize the configuration manager.
+    config = conf.Config(parser, wn_cls, constraint_cls)
+    # Initialize the relaxation labeling algorithm.
+    relaxer = relax.Relaxer(config)
+    # Run the relaxation labeling algorithm.
+    relaxer.relax()
+    # Save statistics to file.
+    stats = Stats(relaxer.status)
+    with open(config.results.path('results.csv', True), 'w') as file:
+        stats.create_report(file)
+
