@@ -10,5 +10,5 @@ coverage==4.4.1
 Sphinx==1.6.3
 sphinxcontrib.napoleon==0.6.1
 cryptography==2.0
-PyYAML==3.12
+PyYAML==3.13
 pytest==3.1.3
