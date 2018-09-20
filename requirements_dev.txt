@@ -5,7 +5,7 @@ six==1.10.0
 bumpversion==0.5.3
 watchdog==0.8.3
 flake8==3.3.0
-tox==2.7.0
+tox==3.4.0
 coverage==4.4.1
 Sphinx==1.6.3
 sphinxcontrib.napoleon==0.6.1
