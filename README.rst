@@ -30,6 +30,11 @@ Features
 
 * TODO
 
+Notes
+--------
+
+* This project is currently unmaintained. This means it won't be updated to newer Python versions or Python packages or tested for security vulnerabilities. The repository contains a list of packages that the project was tested with originally, so that anyone can recreate the original environment.
+  
 Credits
 ---------
 
